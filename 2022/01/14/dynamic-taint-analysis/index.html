@@ -1,0 +1,284 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/blogs/images/icons/favicon-16x16.png?v=2.6.2" type="image/png" sizes="16x16"><link rel="icon" href="/blogs/images/icons/favicon-32x32.png?v=2.6.2" type="image/png" sizes="32x32"><meta name="description" content="This is the note of paper &quot;All You Ever Wanted to Know About Dynamic Taint Analysis and Forward Symbolic Execution (but might have been afraid to ask)&quot; by Edward J. Schwartz et al. at IEEE Symposium o">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Dynamic Taint Analysis &amp; Forward Symbolic Execution">
+<meta property="og:url" content="https://fanweneddie.github.io/blogs/2022/01/14/dynamic-taint-analysis/index.html">
+<meta property="og:site_name" content="Wen Fan&#39;s blog">
+<meta property="og:description" content="This is the note of paper &quot;All You Ever Wanted to Know About Dynamic Taint Analysis and Forward Symbolic Execution (but might have been afraid to ask)&quot; by Edward J. Schwartz et al. at IEEE Symposium o">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/dynamic/simpil.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/dynamic/execution_context.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/dynamic/operational_semantics.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/dynamic/example_semantics.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/dynamic/function.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/dynamic/call_ret_rule.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/dynamic/taint_semantics.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/dynamic/taint_rule.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/dynamic/tainted_jump_policy.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/dynamic/tainted_address_policy.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/dynamic/symbol.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/dynamic/constrain_semantics.png">
+<meta property="article:published_time" content="2022-01-14T10:15:51.000Z">
+<meta property="article:modified_time" content="2022-01-14T12:16:40.190Z">
+<meta property="article:author" content="Wen Fan">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://fanweneddie.github.io/blogs/pictures/dynamic/simpil.png"><title>Dynamic Taint Analysis &amp; Forward Symbolic Execution | Wen Fan's blog</title><link ref="canonical" href="https://fanweneddie.github.io/blogs/2022/01/14/dynamic-taint-analysis/"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/blogs/css/index.css?v=2.6.2"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/blogs/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: undefined,
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"simple","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: false,
+  pjax: undefined,
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"Copy","copySuccess":"Copy Success","copyError":"Copy Error"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 6.0.0"></head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">Home</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">Archives</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">Categories</span></a></div></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Dynamic Taint Analysis &amp; Forward Symbolic Execution</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">Created</span><span class="post-meta-item__value">2022-01-14</span></span><span class="post-meta-item post-meta-item--updatetime"><span class="post-meta-item__icon"><i class="far fa-calendar-check"></i></span><span class="post-meta-item__info">Updated</span><span class="post-meta-item__value">2022-01-14</span></span></div></header><div class="post-body"><p>This is the note of paper <span class="exturl"><a class="exturl__link"   target="_blank" rel="noopener" href="https://users.ece.cmu.edu/~aavgerin/papers/Oakland10.pdf" >“All You Ever Wanted to Know About Dynamic Taint Analysis and Forward Symbolic Execution (but might have been afraid to ask)”</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> by Edward J. Schwartz et al. at IEEE Symposium on Security and Privacy 2010.</p>
+
+        <h1 id="a-general-language"   >
+          <a href="#a-general-language" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#a-general-language"></a> A General Language</h1>
+      
+
+        <h2 id="overview"   >
+          <a href="#overview" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#overview"></a> Overview</h2>
+      
+<p>A simple intermediate language(<code>SIMPIL</code>), which is powerful enough to express typical languages such as Java and assembly code.</p>
+<img src="/blogs/pictures/dynamic/simpil.png" alt="simpil" style="zoom:80%;" />
+<p>Statements in <code>SIMPIL</code> consist of assignments, assertions, jumps and conditional jumps.</p>
+
+        <h2 id="execution-context"   >
+          <a href="#execution-context" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#execution-context"></a> Execution context</h2>
+      
+<p><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi mathvariant="normal">Σ</mi></mrow><annotation encoding="application/x-tex">\Sigma</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord">Σ</span></span></span></span> is the list of program statements</p>
+<p><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>μ</mi></mrow><annotation encoding="application/x-tex">\mu</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.19444em;"></span><span class="mord mathdefault">μ</span></span></span></span> is the current memory state</p>
+<p><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi mathvariant="normal">Δ</mi></mrow><annotation encoding="application/x-tex">\Delta</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord">Δ</span></span></span></span> is the current value for variables</p>
+<p><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>p</mi><mi>c</mi></mrow><annotation encoding="application/x-tex">pc</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.19444em;"></span><span class="mord mathdefault">p</span><span class="mord mathdefault">c</span></span></span></span> is the program counter</p>
+<p><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>l</mi></mrow><annotation encoding="application/x-tex">l</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.69444em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.01968em;">l</span></span></span></span> is the current statement</p>
+<img src="/blogs/pictures/dynamic/execution_context.png" alt="execution_context" style="zoom: 80%;" />
+
+        <h2 id="operational-semantics"   >
+          <a href="#operational-semantics" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#operational-semantics"></a> Operational Semantics</h2>
+      
+<p>Each statement rule is of the form of <code>propositional logic</code>:</p>
+<figure class="highlight plaintext"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">            computation</span><br><span class="line">------------------------------------  RULE TYPE</span><br><span class="line">current state,stmt -&gt; end state,stmt </span><br></pre></td></tr></table></div></figure>
+<p>If the statement matches the <code>RULE TYPE</code>, then it does the <code>computation</code> and the state will transform.</p>
+<p>We use <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>μ</mi><mo separator="true">,</mo><mi mathvariant="normal">Δ</mi><mo>⊢</mo><mi>e</mi><mo>⇓</mo><mi>v</mi></mrow><annotation encoding="application/x-tex">\mu, \Delta \vdash e \Downarrow v</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8888799999999999em;vertical-align:-0.19444em;"></span><span class="mord mathdefault">μ</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord">Δ</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">⊢</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.8888799999999999em;vertical-align:-0.19444em;"></span><span class="mord mathdefault">e</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">⇓</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.43056em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.03588em;">v</span></span></span></span> to evaluate an expression <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>e</mi></mrow><annotation encoding="application/x-tex">e</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.43056em;vertical-align:0em;"></span><span class="mord mathdefault">e</span></span></span></span> to a value <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>v</mi></mrow><annotation encoding="application/x-tex">v</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.43056em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.03588em;">v</span></span></span></span> in the current state given by <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>μ</mi></mrow><annotation encoding="application/x-tex">\mu</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.19444em;"></span><span class="mord mathdefault">μ</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi mathvariant="normal">Δ</mi></mrow><annotation encoding="application/x-tex">\Delta</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord">Δ</span></span></span></span>.</p>
+<p>We use <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msup><mi mathvariant="normal">Δ</mi><mo mathvariant="normal">′</mo></msup><mo>=</mo><mi mathvariant="normal">Δ</mi><mo stretchy="false">[</mo><mi>x</mi><mo>→</mo><mn>10</mn><mo stretchy="false">]</mo></mrow><annotation encoding="application/x-tex">\Delta&#x27; = \Delta[x \rightarrow 10]</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.751892em;vertical-align:0em;"></span><span class="mord"><span class="mord">Δ</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.751892em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">Δ</span><span class="mopen">[</span><span class="mord mathdefault">x</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">1</span><span class="mord">0</span><span class="mclose">]</span></span></span></span> to set <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>x</mi></mrow><annotation encoding="application/x-tex">x</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.43056em;vertical-align:0em;"></span><span class="mord mathdefault">x</span></span></span></span> as 10 and get a new context.</p>
+<img src="/blogs/pictures/dynamic/operational_semantics.png" alt="operational_semantics" style="zoom:67%;" />
+<p>For example,  consider the statement of</p>
+<figure class="highlight plaintext"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">x = 2 * get_input();</span><br></pre></td></tr></table></div></figure>
+<p>We first use <code>CONST</code> rule and <code>INPUT</code> rule,</p>
+<p>Then we use <code>BINOP</code> rule and finally we use <code>ASSIGN</code> rule to finish.</p>
+<img src="/blogs/pictures/dynamic/example_semantics.png" alt="example_semantics" style="zoom:67%;" />
+
+        <h2 id="high-level-semantics"   >
+          <a href="#high-level-semantics" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#high-level-semantics"></a> High-level semantics</h2>
+      
+<p>We can deal with high-level semantics in two ways.</p>
+<ul>
+<li>
+<p>We can compile the missing high-level language constructs down to <code>SIMPIL</code>.</p>
+<p>For example, we can compile function calls down to <code>SIMPIL</code> by storing the return address and transferring control flow.</p>
+</li>
+</ul>
+<img src="/blogs/pictures/dynamic/function.png" alt="function" style="zoom:67%;" />
+<ul>
+<li>
+<p>We can add high-level semantics into <code>SIMPIL</code> to enhance analysis.</p>
+<p>For example, the semantics of <code>CALL</code>, <code>RET</code> and <code>DYNAMICALLY GENERATED CODE</code> are shown below:</p>
+<img src="/blogs/pictures/dynamic/call_ret_rule.png" alt="call_ret_rule" style="zoom: 67%;" />
+</li>
+</ul>
+
+        <h1 id="dynamic-taint-analysis"   >
+          <a href="#dynamic-taint-analysis" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#dynamic-taint-analysis"></a> Dynamic taint analysis</h1>
+      
+
+        <h2 id="semantics"   >
+          <a href="#semantics" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#semantics"></a> Semantics</h2>
+      
+<p>Since dynamic taint analysis is performed on code at runtime, it is natural to add dynamic taint analysis semantics.</p>
+<p>To keep track of the taint status, we refines values in <code>SIMPIL</code> as <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mo>&lt;</mo><mi>v</mi><mo separator="true">,</mo><mi>τ</mi><mo>&gt;</mo></mrow><annotation encoding="application/x-tex">&lt;v,\tau&gt;</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5782em;vertical-align:-0.0391em;"></span><span class="mrel">&lt;</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.7335400000000001em;vertical-align:-0.19444em;"></span><span class="mord mathdefault" style="margin-right:0.03588em;">v</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord mathdefault" style="margin-right:0.1132em;">τ</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">&gt;</span></span></span></span>, where <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>v</mi></mrow><annotation encoding="application/x-tex">v</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.43056em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.03588em;">v</span></span></span></span> is a value in the initial language and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>τ</mi></mrow><annotation encoding="application/x-tex">\tau</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.43056em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.1132em;">τ</span></span></span></span> is the taint status of <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>v</mi></mrow><annotation encoding="application/x-tex">v</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.43056em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.03588em;">v</span></span></span></span>.</p>
+<img src="/blogs/pictures/dynamic/taint_semantics.png" alt="taint_semantics" style="zoom:67%;" />
+<p>So we can add policies to enable dynamic taint analysis in <code>SIMPIL</code>.</p>
+<img src="/blogs/pictures/dynamic/taint_rule.png" alt="taint_rule" style="zoom: 67%;" />
+
+        <h2 id="policy"   >
+          <a href="#policy" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#policy"></a> Policy</h2>
+      
+
+        <h3 id="taint-introduction"   >
+          <a href="#taint-introduction" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#taint-introduction"></a> Taint Introduction</h3>
+      
+<p>It specifies how taint is introduced into a system.</p>
+<p>We initialize all variables, memory cells as untainted.</p>
+<p>In <code>SIMPIL</code>, we only have a single source of user input: <code>get_input()</code></p>
+<p>A taint policy will also distinguish between different input sources.</p>
+
+        <h3 id="taint-propagation"   >
+          <a href="#taint-propagation" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#taint-propagation"></a> Taint Propagation</h3>
+      
+<p>It specifies the taint status for data derived from tainted or untainted operands.</p>
+
+        <h3 id="taint-checking"   >
+          <a href="#taint-checking" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#taint-checking"></a> Taint Checking</h3>
+      
+<p>In <code>SIMPIL</code>,we perform checking by adding the policy to the premise of the operational semantics.</p>
+<p>For example, <code>T-GOTO</code> rule uses <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>P</mi><mrow><mi>g</mi><mi>o</mi><mi>t</mi><mi>o</mi><mi>c</mi><mi>h</mi><mi>e</mi><mi>c</mi><mi>k</mi></mrow></msub><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">P_{gotocheck}(t)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.036108em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.13889em;">P</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361079999999999em;"><span style="top:-2.5500000000000003em;margin-left:-0.13889em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight" style="margin-right:0.03588em;">g</span><span class="mord mathdefault mtight">o</span><span class="mord mathdefault mtight">t</span><span class="mord mathdefault mtight">o</span><span class="mord mathdefault mtight">c</span><span class="mord mathdefault mtight">h</span><span class="mord mathdefault mtight">e</span><span class="mord mathdefault mtight">c</span><span class="mord mathdefault mtight" style="margin-right:0.03148em;">k</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathdefault">t</span><span class="mclose">)</span></span></span></span> policy, which returns <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>T</mi></mrow><annotation encoding="application/x-tex">T</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.13889em;">T</span></span></span></span> if it is safe to perform a jump operation when the target is safe to perform a jump operation when the target address has taint value <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>t</mi></mrow><annotation encoding="application/x-tex">t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.61508em;vertical-align:0em;"></span><span class="mord mathdefault">t</span></span></span></span>.</p>
+
+        <h2 id="a-typical-taint-policy"   >
+          <a href="#a-typical-taint-policy" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#a-typical-taint-policy"></a> A Typical Taint Policy</h2>
+      
+<p><code>Tainted Jump Policy</code>, which aims to protect a potentially vulnerable program from control flow hijacking attacks.</p>
+<p>The main idea is that an input-derived value will never overwrite a control-flow value such as a return address or function pointer.</p>
+<img src="/blogs/pictures/dynamic/tainted_jump_policy.png" alt="tainted_jump_policy" style="zoom:67%;" />
+<p>This policy introduces taint into the system by marking all values returned by <code>get_input()</code> as tainted.</p>
+<p>To fix the problem of undertainting address injection, we can use <code>Tainted Address Policy</code>, where a memory cell is tainted if either the value or address is tainted.</p>
+<img src="/blogs/pictures/dynamic/tainted_address_policy.png" alt="tainted_address_policy" style="zoom: 67%;" />
+
+        <h2 id="control-flow-taint"   >
+          <a href="#control-flow-taint" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#control-flow-taint"></a> Control-flow Taint</h2>
+      
+<p>Unfortunately, pure dynamic taint analysis cannot compute control dependencies, because reasoning about control dependencies requires reasoning about multiple paths, and dynamic analysis executes on a single path at a time.</p>
+
+        <h2 id="sanitization"   >
+          <a href="#sanitization" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#sanitization"></a> Sanitization</h2>
+      
+<p><code>Taint Sanitization Problem</code> identifies when taint can be removed from a value.</p>
+<p>For example, we want to know when the program computes constant functions(e.g. if <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>b</mi><mo>=</mo><mi>a</mi><mo>⊕</mo><mi>a</mi></mrow><annotation encoding="application/x-tex">b = a \oplus a</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.69444em;vertical-align:0em;"></span><span class="mord mathdefault">b</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.66666em;vertical-align:-0.08333em;"></span><span class="mord mathdefault">a</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">⊕</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.43056em;vertical-align:0em;"></span><span class="mord mathdefault">a</span></span></span></span>, then <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>b</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">b = 0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.69444em;vertical-align:0em;"></span><span class="mord mathdefault">b</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.64444em;vertical-align:0em;"></span><span class="mord">0</span></span></span></span> regardless of <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>a</mi></mrow><annotation encoding="application/x-tex">a</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.43056em;vertical-align:0em;"></span><span class="mord mathdefault">a</span></span></span></span>)</p>
+
+        <h1 id="forward-symbolic-execution"   >
+          <a href="#forward-symbolic-execution" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#forward-symbolic-execution"></a> Forward Symbolic Execution</h1>
+      
+<p>We can reduce the reasoning about the behavior of the program to the domain of logic.</p>
+
+        <h2 id="applications-and-advantages"   >
+          <a href="#applications-and-advantages" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#applications-and-advantages"></a> Applications and Advantages</h2>
+      
+
+        <h3 id="multiple-inputs"   >
+          <a href="#multiple-inputs" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#multiple-inputs"></a> Multiple inputs</h3>
+      
+<p>It can be used to reason about more than one input class at once.</p>
+
+        <h2 id="semantics-of-forward-symbolic-execution"   >
+          <a href="#semantics-of-forward-symbolic-execution" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#semantics-of-forward-symbolic-execution"></a> Semantics of Forward Symbolic Execution</h2>
+      
+<p>When <code>get_input()</code> is evaluated symbolically, it returns a <code>symbol</code> instead of a <code>concrete value</code>.</p>
+<p>When a new <code>symbol</code> returns, there is no constrain on it.</p>
+<p>So <code>SIMPIL</code> should be modified as</p>
+<img src="/blogs/pictures/dynamic/symbol.png" alt="symbol" style="zoom:67%;" />
+<p>Branches constrain the values of symbolic variables to the set of values that would execute the path, and the updated semantics is shown below:</p>
+<img src="/blogs/pictures/dynamic/constrain_semantics.png" alt="constrain_semantics" style="zoom:67%;" />
+
+        <h2 id="symbolic-memory-addresses"   >
+          <a href="#symbolic-memory-addresses" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#symbolic-memory-addresses"></a> Symbolic Memory Addresses</h2>
+      
+<p>In <code>LOAD</code> and <code>STORE</code> rules, it uses a integer value to reference a particular memory cell.</p>
+<p>The <code>Symbolic Memory Address</code> problem arises whenever an address referenced in a <code>LOAD</code> or a <code>STORE</code> operation is an expression instead of a concrete value.</p>
+<ul>
+<li>
+<p>Load: a sound strategy is to consider it a load from any possible satisfying assignment for the expression.</p>
+</li>
+<li>
+<p>Store: a store could overwrite any value for a satisfying assignment to the expression.</p>
+</li>
+</ul>
+<p>Also, symbolic memory addresses can lead to <code>aliasing</code> issues.</p>
+<p>There are several ways to deal with symbolic reference:</p>
+<ul>
+<li>
+<p>Make unsound assumptions: transform the address cell as variables.</p>
+</li>
+<li>
+<p>Let subsequent analysis deal with them.(We may use <code>SMT</code> solver to reason about the aliasing problem)</p>
+</li>
+<li>
+<p>perform alias analysis</p>
+</li>
+</ul>
+
+        <h2 id="path-selection"   >
+          <a href="#path-selection" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#path-selection"></a> Path Selection</h2>
+      
+<p>When Forward Symbolic Execution encounters a branch, it must decide which branch to follow first.</p>
+<p>It can be viewed as a tree-search problem. The analysis begins with only a root node in the tree. Then it add the forked states as children to the current node.</p>
+<p>Forward Symbolic execution needs a strategy for choosing which state to explore next(e.g. <code>DFS</code>, <code>Concolic Testing</code>, <code>Random Paths</code> and <code>Heuristics</code>).</p>
+
+        <h2 id="symbolics-jumps"   >
+          <a href="#symbolics-jumps" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#symbolics-jumps"></a> Symbolics Jumps</h2>
+      
+<p>The jump target may be an expression instead of a concrete location.</p>
+
+        <h2 id="handling-system-and-library-calls"   >
+          <a href="#handling-system-and-library-calls" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#handling-system-and-library-calls"></a> Handling System and Library Calls</h2>
+      
+<p>Some system-level calls introduce fresh symbolic variables and also have additional side effects.</p>
+<ul>
+<li>We can create summaries to describe the side effect</li>
+<li>Concolic execution to use values returned from system calls on previous concrete execution</li>
+</ul>
+
+        <h2 id="performance"   >
+          <a href="#performance" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#performance"></a> Performance</h2>
+      
+<p>A straightforward implementation of forward symbolic execution has</p>
+<ul>
+<li>
+<p><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>T</mi><mo>=</mo><mi>O</mi><mo stretchy="false">(</mo><msup><mn>2</mn><mi>b</mi></msup><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">T = O(2^b)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.13889em;">T</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:1.099108em;vertical-align:-0.25em;"></span><span class="mord mathdefault" style="margin-right:0.02778em;">O</span><span class="mopen">(</span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.849108em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathdefault mtight">b</span></span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span>, where <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>T</mi></mrow><annotation encoding="application/x-tex">T</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.13889em;">T</span></span></span></span> is the running time and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>b</mi></mrow><annotation encoding="application/x-tex">b</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.69444em;vertical-align:0em;"></span><span class="mord mathdefault">b</span></span></span></span> is the number of program branches</p>
+</li>
+<li>
+<p><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>f</mi><mo>=</mo><mi>O</mi><mo stretchy="false">(</mo><msup><mn>2</mn><mi>n</mi></msup><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">f = O(2^n)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8888799999999999em;vertical-align:-0.19444em;"></span><span class="mord mathdefault" style="margin-right:0.10764em;">f</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathdefault" style="margin-right:0.02778em;">O</span><span class="mopen">(</span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.664392em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathdefault mtight">n</span></span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span>, where <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>f</mi></mrow><annotation encoding="application/x-tex">f</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8888799999999999em;vertical-align:-0.19444em;"></span><span class="mord mathdefault" style="margin-right:0.10764em;">f</span></span></span></span> is the number of formulas and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>n</mi></mrow><annotation encoding="application/x-tex">n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.43056em;vertical-align:0em;"></span><span class="mord mathdefault">n</span></span></span></span> is the number of program line</p>
+</li>
+<li>
+<p>an exponentially-sized formula per branch</p>
+</li>
+</ul>
+<p>So we can mitigate the problems in three ways:</p>
+<ul>
+<li>Exploiting parallelism</li>
+<li>Giving each variable assignment a unique name</li>
+<li>Eliminating the redundancies between formulas</li>
+</ul>
+
+        <h2 id="mixed-execution"   >
+          <a href="#mixed-execution" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#mixed-execution"></a> Mixed Execution</h2>
+      
+<p>Allowing some inputs to be concrete and others symbolic is called <code>mixed execution</code>.</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ END ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">Author: </span><span class="copyright-author__value"><a href="https://fanweneddie.github.io/blogs">Wen Fan</a></span></div><div class="copyright-link"><span class="copyright-link__name">Link: </span><span class="copyright-link__value"><a href="https://fanweneddie.github.io/blogs/2022/01/14/dynamic-taint-analysis/">https://fanweneddie.github.io/blogs/2022/01/14/dynamic-taint-analysis/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">Copyright: </span><span class="copyright-notice__value">All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> unless stating additionally</span></div></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/blogs/2022/01/14/Pointer-Analysis/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">Pointer Analysis</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/blogs/2022/01/14/Interprocedural-Analysis/"><span class="paginator-prev__text">Interprocedural Analysis</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">Catalog</span><span class="sidebar-nav-ov">Overview</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#a-general-language"><span class="toc-number">1.</span> <span class="toc-text">
+           A General Language</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#overview"><span class="toc-number">1.1.</span> <span class="toc-text">
+           Overview</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#execution-context"><span class="toc-number">1.2.</span> <span class="toc-text">
+           Execution context</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#operational-semantics"><span class="toc-number">1.3.</span> <span class="toc-text">
+           Operational Semantics</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#high-level-semantics"><span class="toc-number">1.4.</span> <span class="toc-text">
+           High-level semantics</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#dynamic-taint-analysis"><span class="toc-number">2.</span> <span class="toc-text">
+           Dynamic taint analysis</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#semantics"><span class="toc-number">2.1.</span> <span class="toc-text">
+           Semantics</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#policy"><span class="toc-number">2.2.</span> <span class="toc-text">
+           Policy</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#taint-introduction"><span class="toc-number">2.2.1.</span> <span class="toc-text">
+           Taint Introduction</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#taint-propagation"><span class="toc-number">2.2.2.</span> <span class="toc-text">
+           Taint Propagation</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#taint-checking"><span class="toc-number">2.2.3.</span> <span class="toc-text">
+           Taint Checking</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#a-typical-taint-policy"><span class="toc-number">2.3.</span> <span class="toc-text">
+           A Typical Taint Policy</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#control-flow-taint"><span class="toc-number">2.4.</span> <span class="toc-text">
+           Control-flow Taint</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#sanitization"><span class="toc-number">2.5.</span> <span class="toc-text">
+           Sanitization</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#forward-symbolic-execution"><span class="toc-number">3.</span> <span class="toc-text">
+           Forward Symbolic Execution</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#applications-and-advantages"><span class="toc-number">3.1.</span> <span class="toc-text">
+           Applications and Advantages</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#multiple-inputs"><span class="toc-number">3.1.1.</span> <span class="toc-text">
+           Multiple inputs</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#semantics-of-forward-symbolic-execution"><span class="toc-number">3.2.</span> <span class="toc-text">
+           Semantics of Forward Symbolic Execution</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#symbolic-memory-addresses"><span class="toc-number">3.3.</span> <span class="toc-text">
+           Symbolic Memory Addresses</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#path-selection"><span class="toc-number">3.4.</span> <span class="toc-text">
+           Path Selection</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#symbolics-jumps"><span class="toc-number">3.5.</span> <span class="toc-text">
+           Symbolics Jumps</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#handling-system-and-library-calls"><span class="toc-number">3.6.</span> <span class="toc-text">
+           Handling System and Library Calls</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#performance"><span class="toc-number">3.7.</span> <span class="toc-text">
+           Performance</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#mixed-execution"><span class="toc-number">3.8.</span> <span class="toc-text">
+           Mixed Execution</span></a></li></ol></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="https://fanweneddie.github.io/img/profile.png" alt="avatar"></div><p class="sidebar-ov-author__text">Wen Fan</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://fanweneddie.github.io" target="_blank" rel="noopener" data-popover="Homepage" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fas fa-home"></i></span></a><a class="sidebar-ov-social-item" href="https://fanweneddie.github.io/personal/WenFan_CV.pdf" target="_blank" rel="noopener" data-popover="CV" data-popover-pos="up"><span class="sidebar-ov-social-item__icon">CV</span></a><a class="sidebar-ov-social-item" href="https://github.com/fanweneddie" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="mailto:eddie@mail.ustc.edu.cn" target="_blank" rel="noopener" data-popover="Email" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fas fa-envelope"></i></span></a></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/blogs/archives/"><div class="sidebar-ov-state-item__count">14</div><div class="sidebar-ov-state-item__name">Archives</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/blogs/categories/"><div class="sidebar-ov-state-item__count">2</div><div class="sidebar-ov-state-item__name">Categories</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="Creative Commons" data-popover-pos="up"><img src="/blogs/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">You have read </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2022</span><span class="footer__icon"><i class="fas fa-heart"></i></span><span>Wen Fan</span></div><div><span>Powered by <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a></span><span> v6.0.0</span><span class="footer__devider">|</span><span>Theme - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.2</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><link href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/katex.min.css" rel="stylesheet" type="text/css"><link href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/contrib/copy-tex.css" rel="stylesheet" type="text/css"><script src="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/contrib/copy-tex.min.js"></script><script src="/blogs/js/utils.js?v=2.6.2"></script><script src="/blogs/js/stun-boot.js?v=2.6.2"></script><script src="/blogs/js/scroll.js?v=2.6.2"></script><script src="/blogs/js/header.js?v=2.6.2"></script><script src="/blogs/js/sidebar.js?v=2.6.2"></script></body></html>
