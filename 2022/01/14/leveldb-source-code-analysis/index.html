@@ -1,0 +1,498 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/blogs/images/icons/favicon-16x16.png?v=2.6.2" type="image/png" sizes="16x16"><link rel="icon" href="/blogs/images/icons/favicon-32x32.png?v=2.6.2" type="image/png" sizes="32x32"><meta name="description" content="This is the simple analysis of leveldb source code.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="leveldb source code analysis">
+<meta property="og:url" content="https://fanweneddie.github.io/blogs/2022/01/14/leveldb-source-code-analysis/index.html">
+<meta property="og:site_name">
+<meta property="og:description" content="This is the simple analysis of leveldb source code.">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/2022/01/14/leveldb-source-code-analysis/pictures/leveldb_arch.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/2022/01/14/leveldb-source-code-analysis/pictures/skipList.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/2022/01/14/leveldb-source-code-analysis/pictures/block.png">
+<meta property="article:published_time" content="2022-01-14T05:20:06.000Z">
+<meta property="article:modified_time" content="2022-01-14T05:20:48.155Z">
+<meta property="article:author" content="Wen Fan">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://fanweneddie.github.io/blogs/2022/01/14/leveldb-source-code-analysis/pictures/leveldb_arch.png"><title>leveldb source code analysis | null</title><link ref="canonical" href="https://fanweneddie.github.io/blogs/2022/01/14/leveldb-source-code-analysis/"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/blogs/css/index.css?v=2.6.2"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/blogs/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: undefined,
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"default","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: false,
+  pjax: undefined,
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"Copy","copySuccess":"Copy Success","copyError":"Copy Error"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 6.0.0"></head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">Home</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">Archives</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">Categories</span></a></div></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">leveldb source code analysis</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">Created</span><span class="post-meta-item__value">2022-01-14</span></span><span class="post-meta-item post-meta-item--updatetime"><span class="post-meta-item__icon"><i class="far fa-calendar-check"></i></span><span class="post-meta-item__info">Updated</span><span class="post-meta-item__value">2022-01-14</span></span></div></header><div class="post-body">
+        <h1 id="leveldb-source-code-analysis"   >
+          <a href="#leveldb-source-code-analysis" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#leveldb-source-code-analysis"></a> leveldb source code analysis</h1>
+      
+<p>I reference to the source code of <span class="exturl"><a class="exturl__link"   target="_blank" rel="noopener" href="https://github.com/google/leveldb" >leveldb</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> and some blogs such as <span class="exturl"><a class="exturl__link"   target="_blank" rel="noopener" href="https://github.com/balloonwj/CppGuide/tree/master/articles/leveldb%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" >leveldb源码分析</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>.</p>
+<p>The architecture of <code>leveldb</code> is shown in Figure 1.</p>
+<img src="pictures/leveldb_arch.png" alt="leveldb_arch" style="zoom:67%;" />
+ <div align = "center">Figure 1: leveldb architecture</div> 
+<p>Here I will introduce each data structures as below.</p>
+
+        <h2 id="basic-components"   >
+          <a href="#basic-components" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#basic-components"></a> Basic Components</h2>
+      
+
+        <h3 id="coding"   >
+          <a href="#coding" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#coding"></a> Coding</h3>
+      
+<ul>
+<li>
+<p>For fixed int(32 bits or 63 bits), it simply uses a buffer to store the int. Here, it uses <code>little-endian</code> way.</p>
+</li>
+<li>
+<p>For var int, we split the integer seven by seven. In the non-terminating seven bits, we set its flag as 0. In the terminating seven bits, we set its flag as 1.</p>
+</li>
+</ul>
+
+        <h3 id="slice"   >
+          <a href="#slice" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#slice"></a> Slice</h3>
+      
+<p>Slice is a simple representation of a string with its size. It is defined in <code>include/leveldb/slice.h</code>.</p>
+
+        <h3 id="key"   >
+          <a href="#key" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#key"></a> Key</h3>
+      
+<p>Here we have three kinds of key:</p>
+<ul>
+<li><code>User Key</code></li>
+<li><code>InternalKey</code></li>
+<li><code>ParsedInternalKey</code></li>
+<li><code>LookupKey</code></li>
+</ul>
+
+        <h4 id="user-key"   >
+          <a href="#user-key" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#user-key"></a> User Key</h4>
+      
+<p><code>User Key</code> is a <code>Slice</code>.</p>
+
+        <h4 id="internalkey"   >
+          <a href="#internalkey" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#internalkey"></a> InternalKey</h4>
+      
+<p><code>InternalKey</code> has a string that consists of <code>User key</code>, <code>sequence number</code> and <code>value type</code>. It has a format of</p>
+<figure class="highlight plaintext"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">| User key (string) | sequence number (7 bytes) | value type (1 byte) |</span><br></pre></td></tr></table></div></figure>
+
+        <h4 id="parsedinternalkey"   >
+          <a href="#parsedinternalkey" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#parsedinternalkey"></a> ParsedInternalKey</h4>
+      
+<p><code>ParsedInternalKey</code> is a struct that contains those fields.</p>
+<figure class="highlight cpp"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">ParsedInternalKey</span> &#123;</span></span><br><span class="line">  Slice user_key;</span><br><span class="line">  SequenceNumber sequence;</span><br><span class="line">  ValueType type;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></div></figure>
+
+        <h4 id="lookupkey"   >
+          <a href="#lookupkey" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#lookupkey"></a> LookupKey</h4>
+      
+<p><code>LookupKey</code> is for lookup in <code>Memtable</code>. It has the format of</p>
+<figure class="highlight plaintext"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">size | User key (string) | sequence number (7 bytes) | value type (1 byte) |</span><br></pre></td></tr></table></div></figure>
+<p>Where size is a <code>varInt</code> and it equals to (size of key) + 8.</p>
+
+        <h3 id="arena"   >
+          <a href="#arena" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#arena"></a> Arena</h3>
+      
+<p>Arena is a memory pool that manages the allocation and free of memory.</p>
+<p>It has four fields:</p>
+<ul>
+<li>
+<p><code>alloc_ptr_</code> points to the first byte of free area</p>
+</li>
+<li>
+<p><code>alloc_bytes_remaining_</code> as remaining size</p>
+</li>
+<li>
+<p><code>blocks_</code> as an array of new allocated memory blocks</p>
+</li>
+<li>
+<p><code>memory_usage_</code> as total memory usage of the arena</p>
+</li>
+</ul>
+
+        <h4 id="allocate"   >
+          <a href="#allocate" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#allocate"></a> Allocate</h4>
+      
+<p>When allocating <code>n</code> bytes,</p>
+<p>If <code>n</code> &lt; <code>alloc_bytes_remaining_</code> ,we just allocate the space in this block</p>
+<p>Else, invoke <code>AllocateFallback()</code> to allocate a new block.</p>
+<p>We set <code>k</code> as the size of a block. If <code>n</code> &gt; <code>k/4</code>, then we allocate a new block of size <code>n</code>; Else we allocate a new block of size <code>k</code></p>
+
+        <h3 id="comparator"   >
+          <a href="#comparator" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#comparator"></a> Comparator</h3>
+      
+<p>Comparator is used to compare keys. It has the interface of</p>
+<ul>
+<li><code>Compare()</code> to compare two user keys</li>
+<li><code>FindShortestSeparator()</code>: Given char <code>key</code> and <code>limit</code> and <code>key</code> &lt; <code>limit</code>, we find the smallest char <code>result</code> such that <code>key</code> &lt; <code>result</code> &lt;= <code>limit</code></li>
+<li><code>FindShortSuccessor()</code>:  Given char <code>key</code>, we find the smallest char that is greater than <code>key</code>.</li>
+</ul>
+<p>Class <code>BytewiseComparatorImpl</code> and <code>InternalKeyComparator</code> implement <code>Comparator</code>.</p>
+
+        <h4 id="bytewisecomparatorimpl"   >
+          <a href="#bytewisecomparatorimpl" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#bytewisecomparatorimpl"></a> BytewiseComparatorImpl</h4>
+      
+<p><code>BytewiseComparatorImpl</code> compares keys in in a bytewise way.(defined in <code>util/comparator.cc</code>)</p>
+
+        <h4 id="internalkeycomparator"   >
+          <a href="#internalkeycomparator" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#internalkeycomparator"></a> InternalKeyComparator</h4>
+      
+<p><code>InternalKeyComparator</code> compares keys (defined in <code>db/dbformat.h</code>)</p>
+<p>It compares <code>InternalKeys</code> by increasing user key and decreasing sequence number.</p>
+<p><code>FindShortSuccessor</code> gets the successor of user key, and then appends <code>kMaxSequenceNumber|kValueTypeForSeek</code></p>
+
+        <h2 id="memtable"   >
+          <a href="#memtable" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#memtable"></a> Memtable</h2>
+      
+<p>Memtable is sorted by key and its core data structure is a skipList. It has several interface methods:</p>
+<ul>
+<li><code>Ref()</code></li>
+<li><code>Unref()</code></li>
+<li><code>NewIterator()</code></li>
+<li><code>Add()</code></li>
+<li><code>Get()</code></li>
+</ul>
+
+        <h3 id="reference-count"   >
+          <a href="#reference-count" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#reference-count"></a> Reference count</h3>
+      
+<p>Memtables are reference counted. It uses <code>Ref()</code> to add the reference count. If the reference count is 0, then it will be deleted in method <code>Unref()</code>.</p>
+
+        <h3 id="iterator"   >
+          <a href="#iterator" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#iterator"></a> Iterator</h3>
+      
+
+        <h3 id="add"   >
+          <a href="#add" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#add"></a> Add</h3>
+      
+<p>Defined in <code>db/memtable.cc</code>.</p>
+<p>When we are trying to add a key-value pair, we will build a buffer of this format</p>
+<figure class="highlight plaintext"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">| VarInt(Internal Key size) len | internal key |VarInt(value) len |value|</span><br></pre></td></tr></table></div></figure>
+<p>And then insert this buffer into <code>skipList</code>.</p>
+
+        <h3 id="get"   >
+          <a href="#get" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#get"></a> Get</h3>
+      
+<p>Defined in <code>db/memtable.cc</code>.</p>
+<p>Given a <code>LookupKey</code>, we use a iterator to seek that key in the skipList.</p>
+<p>If we have found that key, we will check the type of that key. If it is <code>kTypeValue</code>, then, it is valid; If it is <code>kTypeDeletion</code>, then it shows that the key has not been found.</p>
+
+        <h3 id="skiplist"   >
+          <a href="#skiplist" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#skiplist"></a> SkipList</h3>
+      
+<p>Skip list is defined in <code>db/skipList.h</code>.</p>
+<p><code>SkipList</code> has these interfaces:</p>
+<ul>
+<li><code>Insert()</code>: insert a key into <code>SkipList</code></li>
+<li><code>Contains()</code>: check whether <code>SkipList</code> contains the key</li>
+<li><code>Iterator()</code>: return an iterator for the <code>SkipList</code></li>
+</ul>
+
+        <h4 id="search"   >
+          <a href="#search" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#search"></a> Search</h4>
+      
+<p>It calls method <code>FindGreaterOrEqual()</code> to search, which is a classical way for skipList(shown as Figure 2).</p>
+<img src="pictures/skipList.png" alt="skipList" style="zoom: 80%;" />
+ <div align = "center">Figure 2: SkipList search</div> 
+
+        <h4 id="insert"   >
+          <a href="#insert" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#insert"></a> Insert</h4>
+      
+<p>When we are trying to insert a key, we first search this key by calling <code>FindGreaterOrEqual()</code>.</p>
+<p>After getting the location to insert, we call <code>RandomHeight()</code> to get the height of that node.</p>
+<p>Then, we can easily insert that node that represents the key.</p>
+<p>BTW, we can encapsulate the <code>skipList</code> into a <code>Iterator</code>.</p>
+
+        <h4 id="node"   >
+          <a href="#node" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#node"></a> Node</h4>
+      
+<p>The node of <code>SkipList</code> is defined as <code>Node</code>, and it has certain fields:</p>
+<ul>
+<li><code>key</code>: The key in the node</li>
+<li><code>next_[]</code>: next_[i] points to next node on the <code>i</code>th level.</li>
+</ul>
+<p><code>Node</code> uses <code>std::memory_order_xxx</code> for thread safety.</p>
+
+        <h2 id="log"   >
+          <a href="#log" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#log"></a> Log</h2>
+      
+<p>For safety, we should first append the write operation to <code>log</code> before we update <code>Memtable</code>.</p>
+
+        <h3 id="format"   >
+          <a href="#format" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#format"></a> Format</h3>
+      
+<p>Log files are made up of a sequence of 32 KB blocks.</p>
+<p>A block is made up of multiple records.</p>
+<p>A record is made up of</p>
+<figure class="highlight plaintext"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">checksum: uint32     // crc32c of type and data[] ; little-endian</span><br><span class="line">length: uint16       // little-endian</span><br><span class="line">type: uint8          // One of FULL, FIRST, MIDDLE, LAST</span><br><span class="line">data: uint8[length]</span><br></pre></td></tr></table></div></figure>
+
+        <h3 id="write"   >
+          <a href="#write" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#write"></a> Write</h3>
+      
+
+        <h2 id="sstable"   >
+          <a href="#sstable" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#sstable"></a> SSTable</h2>
+      
+<p>The file representation in disks.</p>
+
+        <h3 id="format-2"   >
+          <a href="#format-2" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#format-2"></a> Format</h3>
+      
+<p>In leveldb document, the format of a <code>SSTable</code> is shown below</p>
+<figure class="highlight plaintext"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">&lt;beginning_of_file&gt;</span><br><span class="line">[data block 1]       &lt;----|</span><br><span class="line">[data block 2]       &lt;----|</span><br><span class="line">...                       |</span><br><span class="line">[data block N]       &lt;----|</span><br><span class="line">[meta block 1]  &lt;--|      |</span><br><span class="line">...                |      |</span><br><span class="line">[meta block K]  &lt;--|      |</span><br><span class="line">[metaindex block] -|      |                                      &lt;--|</span><br><span class="line">[index block]-------------|                                      &lt;--|</span><br><span class="line">[Footer]        (fixed size; starts at file_size - sizeof(Footer)) -|</span><br><span class="line">&lt;end_of_file&gt;</span><br></pre></td></tr></table></div></figure>
+<p>There are several blocks:</p>
+<ul>
+<li>
+<p><code>data block</code>: It stores the sorted sequence of key-value pairs.</p>
+</li>
+<li>
+<p><code>meta block</code>: Aka <code>filter block</code>, and it stores bloom filters for a data block.</p>
+</li>
+<li>
+<p><code>metaindex block</code>: It contains an entry for each <code>meta block</code> in this <code>SSTable</code>. For the entry, key is the name of <code>meta block</code> and value is a <code>blockHandle</code> pointing to that <code>meta block</code>.</p>
+</li>
+<li>
+<p><code>index block</code>: It contains an entry for each data block. For each entry, key is a string &gt;= last key in that data block and  &lt; the first key in the successive data block, and the value is the <code>blockHandle</code> for that data block.</p>
+</li>
+<li>
+<p><code>footer</code>: It is located at the end of a <code>SSTable</code> and has fixed length. It mainly contains the <code>blockHandle</code> of <code>metaindex block</code> and <code>index block</code>.</p>
+<p>So the footer is like</p>
+<figure class="highlight plaintext"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">metaindex_handle: char[p];     // Block handle for metaindex</span><br><span class="line">index_handle:     char[q];     // Block handle for index</span><br><span class="line">padding:          char[40-p-q];// zeroed bytes to make fixed length</span><br><span class="line">                                // (40==2*BlockHandle::kMaxEncodedLength)</span><br><span class="line">magic:            fixed64;     // == 0xdb4775248b80fb57 (little-endian)</span><br></pre></td></tr></table></div></figure>
+</li>
+</ul>
+
+        <h3 id="block"   >
+          <a href="#block" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#block"></a> Block</h3>
+      
+
+        <h4 id="format-3"   >
+          <a href="#format-3" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#format-3"></a> Format</h4>
+      
+<p>For <code>data block</code>,  <code>metaindex block</code> and <code>index block</code>, their storage format is the same. They all consist of block data, type and crc32.</p>
+<figure class="highlight plaintext"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">block data  | type(1 byte) | crc32(4 bytes)</span><br></pre></td></tr></table></div></figure>
+<p>where type is the type of compression(such as snappy).</p>
+<p>For block data, the read operation is done by class <code>Block</code> and its construction is done by class <code>BlockBuilder</code>.</p>
+<p><code>BlockBuilder</code> compresses the key by their shared prefix.</p>
+<p>This way can save space but sacrifice index time. Therefore,  <code>leveldb</code> uses a <code>restart point</code>(that does not compress) for a constant interval.</p>
+<p>For a key-value pair, it stores in block data with a format of</p>
+<ul>
+<li><code>shared_bytes</code>: length of shared prefix</li>
+<li><code>unshared_bytes</code>: length of unshared suffix</li>
+<li><code>value_length</code>: length of value</li>
+<li><code>key_delta</code>: the string of unshared suffix</li>
+<li><code>value</code>: the value in a key-value pair</li>
+</ul>
+<p>As for <code>restart point</code>, its <code>shared_bytes</code> = 0</p>
+<p>At the end of a block, it has</p>
+<ul>
+<li><code>restarts</code>:  It stores the offsets of each <code>restart point</code></li>
+<li><code>num_restarts</code>: the number of restart points</li>
+</ul>
+<p>Therefore, the block structure is like Figure 3.</p>
+<p><img src="pictures/block.png" alt="block" /></p>
+ <div align = "center">Figure 3: Block structure</div> 
+
+        <h4 id="construction-blockbuilder"   >
+          <a href="#construction-blockbuilder" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#construction-blockbuilder"></a> Construction: BlockBuilder</h4>
+      
+<p>(Defined in <code>table/block_builder.h</code>)</p>
+<p>Class <code>BlockBuilder</code> mainly builds a block. It has several fields:</p>
+<ul>
+<li><code>buffer_</code>: the content of block</li>
+<li><code>restarts_</code>: a list of restart points</li>
+<li><code>counter_</code>: the number of entry after the restart</li>
+<li><code>last_key_</code>: the last added key</li>
+</ul>
+<p>And <code>BlockBuilder</code> has several methods:</p>
+<ul>
+<li><code>Reset()</code>: reset the content of the block</li>
+<li><code>Add()</code>: add a key-value pair</li>
+<li><code>Finish()</code>: to mark that the construction is finished and return a slice that represents that block.</li>
+</ul>
+<p>For method <code>Add()</code>, it does the following steps to add a key value pair:</p>
+<ul>
+<li>
+<p>it firstly make sure that the added key is greater than any key in the block(to make it sorted).</p>
+</li>
+<li>
+<p>Then, it checks whether the added key is at the restart point.</p>
+</li>
+<li>
+<p>Later, it computes the shared string between <code>last_key_</code> and the added key.</p>
+</li>
+<li>
+<p>At last, it add the key into the buffer and update state.</p>
+</li>
+</ul>
+
+        <h4 id="read-block-and-blockiter"   >
+          <a href="#read-block-and-blockiter" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#read-block-and-blockiter"></a> Read: Block and Block::Iter</h4>
+      
+<p>(Defined in <code>table/block.h</code>)</p>
+<p>Class <code>Block</code> mainly reads a block. Its mainly has these fields:</p>
+<ul>
+<li><code>data_</code>: the pointer to block</li>
+<li><code>size_</code>: the size of block</li>
+<li><code>restart_offset_</code>: the offset of <code>restart_point</code> array in <code>data_</code></li>
+</ul>
+<p><code>Block</code> has an important method: <code>NewIterator()</code>, which returns an iterator of the block(<code>Block::Iter</code>).</p>
+<p>Inner class <code>Block::Iter</code> has fields:</p>
+<ul>
+<li>
+<p><code>constcomparator_</code></p>
+</li>
+<li>
+<p><code>data_</code>: points to the start of the block</p>
+</li>
+<li>
+<p><code>restarts_</code>: the offset of restarts</p>
+</li>
+<li>
+<p><code>num_restarts_</code></p>
+</li>
+<li>
+<p><code>current_</code>: current entry’s offset in data</p>
+</li>
+<li>
+<p><code>restart_index_</code>: the index of restart point that the current entry is at</p>
+</li>
+</ul>
+<p><code>Block::Iter</code> has some Interfaces:</p>
+<ul>
+<li><code>Next()</code>: It runs <code>ParseNextKey()</code> to go to the next entry and get its key-value pair.</li>
+<li><code>Prev()</code>: Firstly, it goes to the nearest restart point before the entry. Then, it keeps calling <code>ParseNextKey()</code> until it reaches the right entry.</li>
+<li><code>Seek()</code>: Firstly, it uses binary search to find the last restart point whose key &lt; target. Then, it keeps calling <code>ParseNextKey()</code> until it reaches the first key such that key &gt;= target.</li>
+</ul>
+
+        <h3 id="construction-tablebuilder"   >
+          <a href="#construction-tablebuilder" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#construction-tablebuilder"></a> Construction: TableBuilder</h3>
+      
+<p>Here I introduce how to build a <code>SSTable</code>. It is done by class <code>TableBuilder</code> and defined in <code>include/leveldb/table_builder.h</code>.</p>
+<p><code>TableBuilder</code> has these interface:</p>
+<ul>
+<li><code>Add()</code>: add a new key-value pair to current table</li>
+<li><code>Flush()</code>: flush all cached key-value into the file</li>
+<li><code>Finish()</code>: finish the construction of the current <code>SSTable</code></li>
+</ul>
+<p><code>TableBuilder</code> has its fields in <code>TableBuilder::Rep</code>:</p>
+<figure class="highlight plaintext"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">Options options;              // data block的选项</span><br><span class="line">Options index_block_options;  // index block的选项</span><br><span class="line">WritableFile* file;           // sstable文件</span><br><span class="line">uint64_t offset; </span><br><span class="line">// 要写入data block在sstable文件中的偏移，初始0</span><br><span class="line">Status status;                //当前状态-初始ok</span><br><span class="line">BlockBuilder data_block;      //当前操作的data block</span><br><span class="line">BlockBuilder index_block;     // sstable的index block</span><br><span class="line">std::string last_key;         //当前data block最后的k/v对的key</span><br><span class="line">int64_t num_entries;          //当前data block的个数，初始0</span><br><span class="line">bool closed;                  //调用了Finish() or Abandon()，初始false</span><br><span class="line">FilterBlockBuilder*filter_block; </span><br><span class="line">//根据filter数据快速定位key是否在block中</span><br><span class="line">bool pending_index_entry;     //见下面的Add函数，初始false</span><br><span class="line">BlockHandle pending_handle;   //添加到index block的data block的信息</span><br><span class="line">std::string compressed_output;//压缩后的data block，临时存储，写入后即被清空</span><br></pre></td></tr></table></div></figure>
+<p>Method <code>Add()</code> of  <code>TableBuilder</code> works as follow:</p>
+<ol>
+<li>Make sure that current file is not closed and finished. Also make sure that the added key is the largest in current file.</li>
+<li>If we have entered an empty data block, we will record the index of last index block.</li>
+<li>We also add the key into the filter block</li>
+<li>We set <code>last_key</code> = <code>key</code>, and then add the key into data_block</li>
+<li>If the number of data block exceeds the limit, we will flush it into the file</li>
+</ol>
+<p>Method <code>Flush()</code> of <code>TableBuilder</code> works as follow:</p>
+<ol>
+<li>Make sure that the data block has been written</li>
+<li>Call <code>WriteBlock()</code> to write the data block into disk</li>
+</ol>
+<p>Method <code>WriteBlock()</code> gets the serialized slice of the block, and may compress the slice. Then it calls <code>WriteRawBlock()</code> to write the block.</p>
+<p>In method <code>WriteRawBlock()</code>, it first set the index handle info of data block. Then, it writes the block contents into the file</p>
+<p>Method <code>Finish()</code> of <code>TableBuilder</code> denotes that the current <code>SSTable</code> has been persistent and closed. It works as follow:</p>
+<ol>
+<li>Call <code>Flush()</code> to write the last data block into disk</li>
+<li>Call <code>WriteRawBlock()</code> to write filter block into disk</li>
+<li>Write the index of filter block into meta index block, and write meta index block into disk</li>
+<li>write the index of data block into index block, and write index block into disk</li>
+<li>write the handle of meta index block and index block, then write footer into disk</li>
+</ol>
+
+        <h3 id="read-table"   >
+          <a href="#read-table" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#read-table"></a> Read: Table</h3>
+      
+<p><code>SSTable</code>'s Read operation is defined in class <code>Table</code>.(Defined in <code>include/leveldb/table.h</code>)</p>
+<p>Method <code>Open()</code> in <code>Table</code>:</p>
+<ol>
+<li>Read <code>Footer</code> and parse it</li>
+<li>Read index block by <code>Footer</code></li>
+<li>construct <code>Rep</code> in <code>Table</code> object</li>
+</ol>
+<p>Method <code>BlockReader()</code> in <code>Table</code>:</p>
+
+        <h3 id="iterate-table"   >
+          <a href="#iterate-table" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#iterate-table"></a> Iterate Table</h3>
+      
+<p>Class <code>Table</code> can get an <code>Iterator</code> by calling method <code>NewIterator()</code>, which returns a <code>TwoLevelIterator</code>.</p>
+<p><code>TwoLevelIterator</code> can iterate and parse different kinds of blocks(Same format but different meanings).</p>
+<p>Method <code>Seek()</code> in <code>TwoLevelIterator</code>:</p>
+<ol>
+<li>Given the target, seek index</li>
+<li>Given <code>index_iter</code>, seek data block</li>
+</ol>
+
+        <h3 id="bloom-filter"   >
+          <a href="#bloom-filter" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#bloom-filter"></a> Bloom Filter</h3>
+      
+<p>Defined in class <code>FilterPolicy</code> in <code>include/leveldb/filter_policy.h</code>.</p>
+<p>To be done</p>
+
+        <h2 id="table-cache"   >
+          <a href="#table-cache" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#table-cache"></a> Table Cache</h2>
+      
+<p><code>TableCache</code> maintains a LRU cache to cache all <code>Table</code> object.</p>
+<p>It has several interfaces:</p>
+<ul>
+<li><code>Evict()</code>: Given a file, it clears all its entry in cache.</li>
+<li><code>Get()</code>: It seeks an entry of a given internal key.</li>
+</ul>
+<p>Method <code>Get()</code> works as below:</p>
+<ol>
+<li>Calls <code>FindTable()</code>to get the cache of the table</li>
+<li>In cache, calls <code>Table::InternalGet()</code> to get the entry.</li>
+</ol>
+<figure class="highlight cpp"><div class="table-container"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">Status <span class="title">TableCache::Get</span><span class="params">(<span class="keyword">const</span> ReadOptions&amp; options, <span class="keyword">uint64_t</span> file_number,</span></span></span><br><span class="line"><span class="params"><span class="function">                       <span class="keyword">uint64_t</span> file_size, <span class="keyword">const</span> Slice&amp; k, <span class="keyword">void</span>* arg,</span></span></span><br><span class="line"><span class="params"><span class="function">                       <span class="keyword">void</span> (*handle_result)(<span class="keyword">void</span>*, <span class="keyword">const</span> Slice&amp;,</span></span></span><br><span class="line"><span class="params"><span class="function">                                             <span class="keyword">const</span> Slice&amp;))</span> </span>&#123;</span><br><span class="line">  Cache::Handle* handle = <span class="literal">nullptr</span>;</span><br><span class="line">  Status s = <span class="built_in">FindTable</span>(file_number, file_size, &amp;handle);</span><br><span class="line">  <span class="keyword">if</span> (s.<span class="built_in">ok</span>()) &#123;</span><br><span class="line">    Table* t = <span class="keyword">reinterpret_cast</span>&lt;TableAndFile*&gt;(cache_-&gt;<span class="built_in">Value</span>(handle))-&gt;table;</span><br><span class="line">    s = t-&gt;<span class="built_in">InternalGet</span>(options, k, arg, handle_result);</span><br><span class="line">    cache_-&gt;<span class="built_in">Release</span>(handle);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> s;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></div></figure>
+<p>For method <code>FindTable()</code>:</p>
+<p>It firstly search table in cache. If it has found it, return success; Otherwise, It opens that table from disk file and insert that table into cache.</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ END ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">Author: </span><span class="copyright-author__value"><a href="https://fanweneddie.github.io/blogs">Wen Fan</a></span></div><div class="copyright-link"><span class="copyright-link__name">Link: </span><span class="copyright-link__value"><a href="https://fanweneddie.github.io/blogs/2022/01/14/leveldb-source-code-analysis/">https://fanweneddie.github.io/blogs/2022/01/14/leveldb-source-code-analysis/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">Copyright: </span><span class="copyright-notice__value">All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> unless stating additionally</span></div></div><nav class="post-paginator paginator"><div class="paginator-next"><a class="paginator-next__link" href="/blogs/2022/01/14/Raft-note/"><span class="paginator-prev__text">Raft note</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">Catalog</span><span class="sidebar-nav-ov">Overview</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#leveldb-source-code-analysis"><span class="toc-number">1.</span> <span class="toc-text">
+           leveldb source code analysis</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#basic-components"><span class="toc-number">1.1.</span> <span class="toc-text">
+           Basic Components</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#coding"><span class="toc-number">1.1.1.</span> <span class="toc-text">
+           Coding</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#slice"><span class="toc-number">1.1.2.</span> <span class="toc-text">
+           Slice</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#key"><span class="toc-number">1.1.3.</span> <span class="toc-text">
+           Key</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#user-key"><span class="toc-number">1.1.3.1.</span> <span class="toc-text">
+           User Key</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#internalkey"><span class="toc-number">1.1.3.2.</span> <span class="toc-text">
+           InternalKey</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#parsedinternalkey"><span class="toc-number">1.1.3.3.</span> <span class="toc-text">
+           ParsedInternalKey</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#lookupkey"><span class="toc-number">1.1.3.4.</span> <span class="toc-text">
+           LookupKey</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#arena"><span class="toc-number">1.1.4.</span> <span class="toc-text">
+           Arena</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#allocate"><span class="toc-number">1.1.4.1.</span> <span class="toc-text">
+           Allocate</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#comparator"><span class="toc-number">1.1.5.</span> <span class="toc-text">
+           Comparator</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#bytewisecomparatorimpl"><span class="toc-number">1.1.5.1.</span> <span class="toc-text">
+           BytewiseComparatorImpl</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#internalkeycomparator"><span class="toc-number">1.1.5.2.</span> <span class="toc-text">
+           InternalKeyComparator</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#memtable"><span class="toc-number">1.2.</span> <span class="toc-text">
+           Memtable</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#reference-count"><span class="toc-number">1.2.1.</span> <span class="toc-text">
+           Reference count</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#iterator"><span class="toc-number">1.2.2.</span> <span class="toc-text">
+           Iterator</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#add"><span class="toc-number">1.2.3.</span> <span class="toc-text">
+           Add</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#get"><span class="toc-number">1.2.4.</span> <span class="toc-text">
+           Get</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#skiplist"><span class="toc-number">1.2.5.</span> <span class="toc-text">
+           SkipList</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#search"><span class="toc-number">1.2.5.1.</span> <span class="toc-text">
+           Search</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#insert"><span class="toc-number">1.2.5.2.</span> <span class="toc-text">
+           Insert</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#node"><span class="toc-number">1.2.5.3.</span> <span class="toc-text">
+           Node</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#log"><span class="toc-number">1.3.</span> <span class="toc-text">
+           Log</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#format"><span class="toc-number">1.3.1.</span> <span class="toc-text">
+           Format</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#write"><span class="toc-number">1.3.2.</span> <span class="toc-text">
+           Write</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#sstable"><span class="toc-number">1.4.</span> <span class="toc-text">
+           SSTable</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#format-2"><span class="toc-number">1.4.1.</span> <span class="toc-text">
+           Format</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#block"><span class="toc-number">1.4.2.</span> <span class="toc-text">
+           Block</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#format-3"><span class="toc-number">1.4.2.1.</span> <span class="toc-text">
+           Format</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#construction-blockbuilder"><span class="toc-number">1.4.2.2.</span> <span class="toc-text">
+           Construction: BlockBuilder</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#read-block-and-blockiter"><span class="toc-number">1.4.2.3.</span> <span class="toc-text">
+           Read: Block and Block::Iter</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#construction-tablebuilder"><span class="toc-number">1.4.3.</span> <span class="toc-text">
+           Construction: TableBuilder</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#read-table"><span class="toc-number">1.4.4.</span> <span class="toc-text">
+           Read: Table</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#iterate-table"><span class="toc-number">1.4.5.</span> <span class="toc-text">
+           Iterate Table</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#bloom-filter"><span class="toc-number">1.4.6.</span> <span class="toc-text">
+           Bloom Filter</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#table-cache"><span class="toc-number">1.5.</span> <span class="toc-text">
+           Table Cache</span></a></li></ol></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="https://fanweneddie.github.io/img/profile.png" alt="avatar"></div><p class="sidebar-ov-author__text">Wen Fan</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://fanweneddie.github.io" target="_blank" rel="noopener" data-popover="Homepage" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fas fa-home"></i></span></a><a class="sidebar-ov-social-item" href="https://fanweneddie.github.io/personal/WenFan_CV.pdf" target="_blank" rel="noopener" data-popover="CV" data-popover-pos="up"><span class="sidebar-ov-social-item__icon">CV</span></a><a class="sidebar-ov-social-item" href="https://github.com/fanweneddie" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="mailto:eddie@mail.ustc.edu.cn" target="_blank" rel="noopener" data-popover="Email" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fas fa-envelope"></i></span></a></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/blogs/archives/"><div class="sidebar-ov-state-item__count">2</div><div class="sidebar-ov-state-item__name">Archives</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/blogs/categories/"><div class="sidebar-ov-state-item__count">1</div><div class="sidebar-ov-state-item__name">Categories</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="Creative Commons" data-popover-pos="up"><img src="/blogs/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">You have read </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2022</span><span class="footer__icon"><i class="fas fa-heart"></i></span><span>Wen Fan</span></div><div><span>Powered by <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a></span><span> v6.0.0</span><span class="footer__devider">|</span><span>Theme - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.2</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><link href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/katex.min.css" rel="stylesheet" type="text/css"><link href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/contrib/copy-tex.css" rel="stylesheet" type="text/css"><script src="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/contrib/copy-tex.min.js"></script><script src="/blogs/js/utils.js?v=2.6.2"></script><script src="/blogs/js/stun-boot.js?v=2.6.2"></script><script src="/blogs/js/scroll.js?v=2.6.2"></script><script src="/blogs/js/header.js?v=2.6.2"></script><script src="/blogs/js/sidebar.js?v=2.6.2"></script></body></html>
