@@ -1,0 +1,234 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/blogs/images/icons/favicon-16x16.png?v=2.6.2" type="image/png" sizes="16x16"><link rel="icon" href="/blogs/images/icons/favicon-32x32.png?v=2.6.2" type="image/png" sizes="32x32"><meta name="description" content="This is the note of paper &quot;Understanding and Detecting Software Upgrade Failures in Distributed Systems&quot; by Yongle Zhang et al. at SOSP&#39;21.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Note of Upgrade Failures">
+<meta property="og:url" content="https://fanweneddie.github.io/blogs/2022/01/15/upgrade-failure-note/index.html">
+<meta property="og:site_name" content="Wen Fan&#39;s blog">
+<meta property="og:description" content="This is the note of paper &quot;Understanding and Detecting Software Upgrade Failures in Distributed Systems&quot; by Yongle Zhang et al. at SOSP&#39;21.">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2022-01-15T09:34:59.000Z">
+<meta property="article:modified_time" content="2022-01-15T09:48:28.590Z">
+<meta property="article:author" content="Wen Fan">
+<meta name="twitter:card" content="summary"><title>Note of Upgrade Failures | Wen Fan's blog</title><link ref="canonical" href="https://fanweneddie.github.io/blogs/2022/01/15/upgrade-failure-note/"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/blogs/css/index.css?v=2.6.2"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/blogs/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: undefined,
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"simple","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: false,
+  pjax: undefined,
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"Copy","copySuccess":"Copy Success","copyError":"Copy Error"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 6.0.0"></head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">Home</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">Archives</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">Categories</span></a></div></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Note of Upgrade Failures</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">Created</span><span class="post-meta-item__value">2022-01-15</span></span><span class="post-meta-item post-meta-item--updatetime"><span class="post-meta-item__icon"><i class="far fa-calendar-check"></i></span><span class="post-meta-item__info">Updated</span><span class="post-meta-item__value">2022-01-15</span></span></div></header><div class="post-body"><p>This is the note of paper <span class="exturl"><a class="exturl__link"   target="_blank" rel="noopener" href="https://www.cs.purdue.edu/homes/yonglezh/pub/upgrade-sosp21.pdf" >“Understanding and Detecting Software Upgrade Failures in Distributed Systems”</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> by Yongle Zhang et al. at SOSP’21.</p>
+
+        <h1 id="introduction"   >
+          <a href="#introduction" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#introduction"></a> Introduction</h1>
+      
+<p>Distributed system software upgrade is one of the most disruptive maintenance tasks. Software upgrade failures is problematic in:</p>
+<ul>
+<li>Large scale: Since upgrade is typically performed on the entire system, so an upgrade failure can often paralyze the entire cluster.</li>
+<li>Vulnerable context: Failures under the context of no-service and partial service are particularly difficult to mask.</li>
+<li>Persistent impact: an upgrade failure can corrupt system state persistently that cannot be easily recovered by rolling back to the old version.</li>
+<li>Difficult to expose: hard to use traditional testing.</li>
+</ul>
+<p>This paper provides the first in-depth analysis on software upgrade failures based on 123 real-world upgrade failures from widely-used distributed systems. For each case, we carefully analyzed its report and source code to thoroughly understand the symptom severity, the root cause, and the propagation chain in between.</p>
+
+        <h1 id="case-studies"   >
+          <a href="#case-studies" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#case-studies"></a> Case studies</h1>
+      
+
+        <h2 id="severity-of-upgrade-failures"   >
+          <a href="#severity-of-upgrade-failures" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#severity-of-upgrade-failures"></a> Severity of upgrade failures</h2>
+      
+<p>This part finds that upgrade failures can cause big problems with huge cost.</p>
+
+        <h3 id="finding-1"   >
+          <a href="#finding-1" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#finding-1"></a> Finding 1:</h3>
+      
+<p>Upgrade failures have significantly higher priority than regular failures.</p>
+
+        <h3 id="finding-2"   >
+          <a href="#finding-2" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#finding-2"></a> Finding 2:</h3>
+      
+<p>The majority (67%) of upgrade failures are catastrophic.</p>
+
+        <h3 id="finding-3"   >
+          <a href="#finding-3" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#finding-3"></a> Finding 3:</h3>
+      
+<p>Most (70%) upgrade failures have easy-to-observe symptoms like node crashes or fatal exceptions.</p>
+
+        <h3 id="finding-4"   >
+          <a href="#finding-4" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#finding-4"></a> Finding 4:</h3>
+      
+<p>The majority (63%) of upgrade bugs were not caught before code release.</p>
+
+        <h2 id="root-causes-of-upgrade-failures"   >
+          <a href="#root-causes-of-upgrade-failures" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#root-causes-of-upgrade-failures"></a> Root causes of upgrade failures</h2>
+      
+
+        <h3 id="finding-5"   >
+          <a href="#finding-5" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#finding-5"></a> Finding 5:</h3>
+      
+<p>About two thirds of upgrade failures are caused by interaction between two software versions that hold incompatible data syntax or semantics assumption.</p>
+<p>To be specific, close to 2/3 of incompatibility is about syntax difference of the same data in different versions, and the remaining 1/4 is about semantic difference.</p>
+<p>Also, 60% of incompatibility is centered on persistent storage data, while 40% is centered on network messages.</p>
+
+        <h3 id="finding-6"   >
+          <a href="#finding-6" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#finding-6"></a> Finding 6:</h3>
+      
+<p>Close to 20% of syntax incompatibilities are about data syntax defined by serialization libraries or enum data types. Given their clear syntax definition interface, automated incompatibility detection is feasible.</p>
+<p>For serialization library data, One common problem is that the new version adds a required data member for a class. Then, during a rolling upgrade, the serialization library in a new node cannot find this data member in the data generated by an old node and triggers an upgrade failure.</p>
+<p>For enum data, the problem is caused by wrong index after some insertion in new version.</p>
+
+        <h3 id="finding-7"   >
+          <a href="#finding-7" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#finding-7"></a> Finding 7:</h3>
+      
+<p>Most (about 80%) data syntax incompatibilities are caused by missing or incomplete deserialization functions for system-specific data.</p>
+
+        <h3 id="finding-8"   >
+          <a href="#finding-8" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#finding-8"></a> Finding 8:</h3>
+      
+<p>Close to two thirds of of data semantics incompatibilities are caused by incomplete version checking and handling.</p>
+<p>Actually, each version of source code should have their own distinct version ID, and each version ID should be mapped to a set of features that are supported in the parsing logic.</p>
+
+        <h2 id="triggers-of-the-failure"   >
+          <a href="#triggers-of-the-failure" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#triggers-of-the-failure"></a> Triggers of the failure</h2>
+      
+
+        <h3 id="finding-9"   >
+          <a href="#finding-9" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#finding-9"></a> Finding 9:</h3>
+      
+<p>All but 14 upgrade failures can be triggered by consecutive major or minor versions.</p>
+<p>Therefore, we just need to test <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>O</mi><mo stretchy="false">(</mo><mi>N</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">O(N)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathdefault" style="margin-right:0.02778em;">O</span><span class="mopen">(</span><span class="mord mathdefault" style="margin-right:0.10903em;">N</span><span class="mclose">)</span></span></span></span> combinations of consecutive versions to expose a vast majority of the upgrade failures.</p>
+
+        <h3 id="finding-10"   >
+          <a href="#finding-10" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#finding-10"></a> Finding 10:</h3>
+      
+<p>All of the upgrade failures require no more than 3 nodes to trigger.</p>
+
+        <h3 id="finding-11"   >
+          <a href="#finding-11" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#finding-11"></a> Finding 11:</h3>
+      
+<p>Close to 90% of the upgrade failures are deterministic, not requiring any special timing to trigger.</p>
+
+        <h3 id="finding-12"   >
+          <a href="#finding-12" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#finding-12"></a> Finding 12:</h3>
+      
+<p>Half of upgrade bugs can be triggered by stress-testing operations with default configurations.</p>
+
+        <h2 id="state-of-the-art"   >
+          <a href="#state-of-the-art" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#state-of-the-art"></a> State of the art</h2>
+      
+<p>Current distributed systems have some limitations:</p>
+<ul>
+<li>They do not solve the problem of testing-workload generation.</li>
+<li>There are also no mechanisms for their upgrade testing to systematically explore different version combinations, different configurations, different upgrade scenarios.</li>
+</ul>
+
+        <h1 id="testing-and-detecting-upgrade-failures"   >
+          <a href="#testing-and-detecting-upgrade-failures" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#testing-and-detecting-upgrade-failures"></a> Testing and Detecting Upgrade Failures</h1>
+      
+<p>According to our findings, we have designed</p>
+<ul>
+<li><code>DUPTester</code> to expose upgrade failures through in-house testing</li>
+<li><code>DUPChecker</code> to detect upgrade failures caused by data-syntax incompatibility.</li>
+</ul>
+
+        <h2 id="duptester"   >
+          <a href="#duptester" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#duptester"></a> DUPTester</h2>
+      
+
+        <h3 id="testing-environment"   >
+          <a href="#testing-environment" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#testing-environment"></a> Testing environment</h3>
+      
+<p><code>DUPTester</code> packages what the target system (e.g., Cassandra) is supposed to run on each physical node, with all its dependencies, in a container.</p>
+<p>DUPTester simulates a 3-node cluster of the target distributed system on one single<br />
+physical machine using a container orchestration tool.</p>
+<p>For every pair of versions to test, <code>DUPTester</code> systematically tests three upgrade scenarios:</p>
+<ul>
+<li>Full-stop upgrade</li>
+<li>Rolling upgrade</li>
+<li>New node joining</li>
+</ul>
+
+        <h3 id="testing-workload"   >
+          <a href="#testing-workload" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#testing-workload"></a> Testing workload</h3>
+      
+<p>DUPTester makes the best use of existing stress testing and unit testing.</p>
+<p>Leveraging stress testing is straightforward. Test cases in stress testing consist of client-side commands to be issued to a cluster.</p>
+<p>Leveraging unit testing is much harder. A unit test invokes internal functions of a system-under-test from a specially designed test harness and hence cannot be directly used as testing workload during system upgrade.</p>
+<p>Therefore, DUPTester translate some unit tests into client-slide scripts that can be used directly as testing workload for three upgrade scenarios. At high level, DUPTester translator first constructs an abstract syntax tree (AST) for each unit test, and then synthesizes a Python program based on this AST.</p>
+
+        <h3 id="evaluation-results"   >
+          <a href="#evaluation-results" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#evaluation-results"></a> Evaluation results</h3>
+      
+<p>DUPTester is able to find 20 previously unknown (to our best knowledge) upgrade<br />
+failures in four distributed systems.</p>
+<p>DUPTester experienced four false-positives. To evaluate false negatives, we apply DUPTester on 15 randomly sampled cases from our study, DUPTester can trigger 5 of them.</p>
+
+        <h2 id="dupchecker"   >
+          <a href="#dupchecker" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#dupchecker"></a> DUPChecker</h2>
+      
+<p>we designed a static checker DUPChecker to search for two types of data-syntax incompatibility across versions:</p>
+<ul>
+<li>(type-1) on data defined by serialization libraries</li>
+<li>(type-2) on data of enum types</li>
+</ul>
+
+        <h3 id="data-in-serialization-library"   >
+          <a href="#data-in-serialization-library" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#data-in-serialization-library"></a> Data in serialization library</h3>
+      
+<p>DUPChecker creates a parser for protocol files by extending the PyParsing module with the serialization library’s grammar, which then allows DUPChecker to compare the data format of the same data member from different versions and report any incompatible change of the first two categories as an error.</p>
+<p>In total, DUPChecker found 878 incompatibilities.</p>
+<p>We haven’t found any false-positive cases (by manually checking).</p>
+
+        <h3 id="data-in-enum-type"   >
+          <a href="#data-in-enum-type" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#data-in-enum-type"></a> Data in enum type</h3>
+      
+<p>DUPChecker first identifies the enum class whose member’s index has been written to a serialized output stream through data flow analysis.</p>
+
+        <h1 id="summary"   >
+          <a href="#summary" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#summary"></a> Summary</h1>
+      
+<p>I think this work stands out because it has conducted a comprehensive study and simplifies the case in software upgrade. Also, it leverages code synthesis and static analysis to build DUPTester and DUPChecker.</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ END ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">Author: </span><span class="copyright-author__value"><a href="https://fanweneddie.github.io/blogs">Wen Fan</a></span></div><div class="copyright-link"><span class="copyright-link__name">Link: </span><span class="copyright-link__value"><a href="https://fanweneddie.github.io/blogs/2022/01/15/upgrade-failure-note/">https://fanweneddie.github.io/blogs/2022/01/15/upgrade-failure-note/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">Copyright: </span><span class="copyright-notice__value">All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> unless stating additionally</span></div></div><nav class="post-paginator paginator"><div class="paginator-next"><a class="paginator-next__link" href="/blogs/2022/01/15/serval-note/"><span class="paginator-prev__text">Note of Serval</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">Catalog</span><span class="sidebar-nav-ov">Overview</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#introduction"><span class="toc-number">1.</span> <span class="toc-text">
+           Introduction</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#case-studies"><span class="toc-number">2.</span> <span class="toc-text">
+           Case studies</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#severity-of-upgrade-failures"><span class="toc-number">2.1.</span> <span class="toc-text">
+           Severity of upgrade failures</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#finding-1"><span class="toc-number">2.1.1.</span> <span class="toc-text">
+           Finding 1:</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#finding-2"><span class="toc-number">2.1.2.</span> <span class="toc-text">
+           Finding 2:</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#finding-3"><span class="toc-number">2.1.3.</span> <span class="toc-text">
+           Finding 3:</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#finding-4"><span class="toc-number">2.1.4.</span> <span class="toc-text">
+           Finding 4:</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#root-causes-of-upgrade-failures"><span class="toc-number">2.2.</span> <span class="toc-text">
+           Root causes of upgrade failures</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#finding-5"><span class="toc-number">2.2.1.</span> <span class="toc-text">
+           Finding 5:</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#finding-6"><span class="toc-number">2.2.2.</span> <span class="toc-text">
+           Finding 6:</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#finding-7"><span class="toc-number">2.2.3.</span> <span class="toc-text">
+           Finding 7:</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#finding-8"><span class="toc-number">2.2.4.</span> <span class="toc-text">
+           Finding 8:</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#triggers-of-the-failure"><span class="toc-number">2.3.</span> <span class="toc-text">
+           Triggers of the failure</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#finding-9"><span class="toc-number">2.3.1.</span> <span class="toc-text">
+           Finding 9:</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#finding-10"><span class="toc-number">2.3.2.</span> <span class="toc-text">
+           Finding 10:</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#finding-11"><span class="toc-number">2.3.3.</span> <span class="toc-text">
+           Finding 11:</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#finding-12"><span class="toc-number">2.3.4.</span> <span class="toc-text">
+           Finding 12:</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#state-of-the-art"><span class="toc-number">2.4.</span> <span class="toc-text">
+           State of the art</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#testing-and-detecting-upgrade-failures"><span class="toc-number">3.</span> <span class="toc-text">
+           Testing and Detecting Upgrade Failures</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#duptester"><span class="toc-number">3.1.</span> <span class="toc-text">
+           DUPTester</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#testing-environment"><span class="toc-number">3.1.1.</span> <span class="toc-text">
+           Testing environment</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#testing-workload"><span class="toc-number">3.1.2.</span> <span class="toc-text">
+           Testing workload</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#evaluation-results"><span class="toc-number">3.1.3.</span> <span class="toc-text">
+           Evaluation results</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#dupchecker"><span class="toc-number">3.2.</span> <span class="toc-text">
+           DUPChecker</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#data-in-serialization-library"><span class="toc-number">3.2.1.</span> <span class="toc-text">
+           Data in serialization library</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#data-in-enum-type"><span class="toc-number">3.2.2.</span> <span class="toc-text">
+           Data in enum type</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#summary"><span class="toc-number">4.</span> <span class="toc-text">
+           Summary</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="https://fanweneddie.github.io/img/profile.png" alt="avatar"></div><p class="sidebar-ov-author__text">Wen Fan</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://fanweneddie.github.io" target="_blank" rel="noopener" data-popover="Homepage" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fas fa-home"></i></span></a><a class="sidebar-ov-social-item" href="https://fanweneddie.github.io/personal/WenFan_CV.pdf" target="_blank" rel="noopener" data-popover="CV" data-popover-pos="up"><span class="sidebar-ov-social-item__icon">CV</span></a><a class="sidebar-ov-social-item" href="https://github.com/fanweneddie" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="mailto:eddie@mail.ustc.edu.cn" target="_blank" rel="noopener" data-popover="Email" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fas fa-envelope"></i></span></a></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/blogs/archives/"><div class="sidebar-ov-state-item__count">23</div><div class="sidebar-ov-state-item__name">Archives</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/blogs/categories/"><div class="sidebar-ov-state-item__count">2</div><div class="sidebar-ov-state-item__name">Categories</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="Creative Commons" data-popover-pos="up"><img src="/blogs/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">You have read </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2022</span><span class="footer__icon"><i class="fas fa-heart"></i></span><span>Wen Fan</span></div><div><span>Powered by <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a></span><span> v6.0.0</span><span class="footer__devider">|</span><span>Theme - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.2</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><link href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/katex.min.css" rel="stylesheet" type="text/css"><link href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/contrib/copy-tex.css" rel="stylesheet" type="text/css"><script src="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/contrib/copy-tex.min.js"></script><script src="/blogs/js/utils.js?v=2.6.2"></script><script src="/blogs/js/stun-boot.js?v=2.6.2"></script><script src="/blogs/js/scroll.js?v=2.6.2"></script><script src="/blogs/js/header.js?v=2.6.2"></script><script src="/blogs/js/sidebar.js?v=2.6.2"></script></body></html>

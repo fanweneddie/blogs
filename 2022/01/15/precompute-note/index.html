@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/blogs/images/icons/favicon-16x16.png?v=2.6.2" type="image/png" sizes="16x16"><link rel="icon" href="/blogs/images/icons/favicon-32x32.png?v=2.6.2" type="image/png" sizes="32x32"><meta name="description" content="This is the note of paper &quot;Precomputing possible configuration error diagnoses&quot; by Ariel Rabkin and Randy Katz at ASE &#39;11.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Note of Precomputing Configuration Error">
+<meta property="og:url" content="https://fanweneddie.github.io/blogs/2022/01/15/precompute-note/index.html">
+<meta property="og:site_name" content="Wen Fan&#39;s blog">
+<meta property="og:description" content="This is the note of paper &quot;Precomputing possible configuration error diagnoses&quot; by Ariel Rabkin and Randy Katz at ASE &#39;11.">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/precompute/example.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/precompute/approach.png">
+<meta property="article:published_time" content="2022-01-15T09:05:44.000Z">
+<meta property="article:modified_time" content="2022-01-15T09:14:31.087Z">
+<meta property="article:author" content="Wen Fan">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://fanweneddie.github.io/blogs/pictures/precompute/example.png"><title>Note of Precomputing Configuration Error | Wen Fan's blog</title><link ref="canonical" href="https://fanweneddie.github.io/blogs/2022/01/15/precompute-note/"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/blogs/css/index.css?v=2.6.2"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/blogs/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: undefined,
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"simple","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: false,
+  pjax: undefined,
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"Copy","copySuccess":"Copy Success","copyError":"Copy Error"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 6.0.0"></head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">Home</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">Archives</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">Categories</span></a></div></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Note of Precomputing Configuration Error</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">Created</span><span class="post-meta-item__value">2022-01-15</span></span><span class="post-meta-item post-meta-item--updatetime"><span class="post-meta-item__icon"><i class="far fa-calendar-check"></i></span><span class="post-meta-item__info">Updated</span><span class="post-meta-item__value">2022-01-15</span></span></div></header><div class="post-body"><p>This is the note of paper <span class="exturl"><a class="exturl__link"   target="_blank" rel="noopener" href="http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.446.7705&amp;rep=rep1&amp;type=pdf" >“Precomputing Possible Configuration Error Diagnoses”</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> by Ariel Rabkin and Randy Katz at ASE '11.</p>
+
+        <h1 id="introduction"   >
+          <a href="#introduction" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#introduction"></a> Introduction</h1>
+      
+<p>In software configuration, this paper demonstrates how to build a map from each program point to the options that might cause an error at that point.</p>
+<p>For example, if there is en error message such as <code>NullPointerException at line 134 of NetUtils.java</code>, this approach points them to a configuration option that, if changed, will make the error go away.</p>
+<p>The chief tool is static analysis( failure-context-sensitive analysis, FCS), which can be done independent of the user’s query.</p>
+
+        <h1 id="fcs"   >
+          <a href="#fcs" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#fcs"></a> FCS</h1>
+      
+<p>FCS re-analyzes the call chain corresponding to the stack trace, pruning out irrelevant paths. By reusing the results from a prior static analysis, the run time for FCS can be kept low.</p>
+<p>In systems such as Hadoop, data may flow in and out of the system via network and filesystem, so it is difficult to capture dynamically and there exists some imprecision.</p>
+
+        <h1 id="model"   >
+          <a href="#model" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#model"></a> Model</h1>
+      
+<p>We model configurations as a set of key-value pairs, where the keys are strings and the values have arbitrary type.</p>
+
+        <h2 id="crash-example"   >
+          <a href="#crash-example" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#crash-example"></a> Crash example:</h2>
+      
+<p>One crash example is shown in Figure 1.</p>
+<img src="/blogs/pictures/precompute/example.png" alt="example" style="zoom: 67%;" />
+<div align = "center">Figure 1: A crash example</div>
+<p>In method <code>getNameNodeAddress()</code>, it attempts to construct an address whose parameter is a string generated from method <code>getDefaultUri()</code>. However, method <code>getDefaultUri()</code> can only return a <code>null</code> in this case, and the crash will finally happen in line 134 in method <code>createSAddr()</code>. This crash entails three classes and it is hard to debug.</p>
+<p>In our approach, we build a table mapping each line in program to the options most associated with it. In this example, it will show that <code>fs.default.name</code> affects line 134 of <code>NetUtils.java</code>.</p>
+<p>The analysis marks the call to <code>Conf.get()</code> as an option read. Its return value is therefore assigned the label <code>fs.default.name</code>. Dataflow analysis tracks the flow of this label into <code>reateSAddr()</code>. Line 134 of <code>NetUtils.java</code> uses this value, and so the analysis outputs that the line in question depends on <code>fs.default.name</code>.</p>
+<p>Our analysis does not tell users what value for the option will resolve the problem, but it can avoid wasted time tinkering with irrelevant options.</p>
+
+        <h2 id="approach"   >
+          <a href="#approach" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#approach"></a> Approach</h2>
+      
+<p>The approach is show in Figure 2.</p>
+<img src="/blogs/pictures/precompute/approach.png" alt="approach" style="zoom:67%;" />
+<div align = "center">Figure 2: Approach</div>
+<p>Step (1) to (4) can be down statically.</p>
+
+        <h3 id="heuristics"   >
+          <a href="#heuristics" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#heuristics"></a> heuristics:</h3>
+      
+<ul>
+<li>
+<p>We cannot assume that analysis will find an allocation site for every object.</p>
+<p>Objects can be allocated in native code or in user code not present at analysis time. Hence, we apply labels to variables and to fields of objects, not to allocation sites.</p>
+</li>
+<li>
+<p>we do not analyze inside the standard library.</p>
+<p>Instead, we treat library methods as opaque and treat references to library-defined types as primitives.</p>
+</li>
+</ul>
+
+        <h2 id="implementation"   >
+          <a href="#implementation" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#implementation"></a> Implementation</h2>
+      
+
+        <h3 id="static-analysis"   >
+          <a href="#static-analysis" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#static-analysis"></a> Static Analysis</h3>
+      
+
+        <h4 id="points-to-analysis"   >
+          <a href="#points-to-analysis" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#points-to-analysis"></a> Points-to Analysis</h4>
+      
+<p>We used the k-object-sensitive points-to analysis built into <code>JChord</code> (with k = 2). The analysis is field-sensitive, path insensitive, and flow insensitive.</p>
+<p>To incorporate remotely invoked methods into our points-to analysis, we automatically generate Java stubs that call each remotely accessible method of a server object. <strong>???</strong></p>
+
+        <h4 id="finding-configuration"   >
+          <a href="#finding-configuration" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#finding-configuration"></a> Finding Configuration</h4>
+      
+<p>Each of the applications we examined used a handful of “configuration” classes (often with that name) responsible for reading a configuration file and exposing a key-value interface to the rest of the program.</p>
+<p>Configuration is typically spread across several domains: an environment variable named <code>someOption</code> may have no connection to a JVM property of the same name.</p>
+
+        <h4 id="dataflow"   >
+          <a href="#dataflow" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#dataflow"></a> Dataflow</h4>
+      
+<p>As noted above, we use an object-sensitive dataflow analysis. This decreased false positives by 40% compared to context-insensitive analysis.</p>
+<p>We mark a method’s return value as depending on an argument if there is a control-dependency between the return statement and the argument.</p>
+<p>If two variables may be aliased locally, we propagate labels from one to the other.  If a local variable aliases a static or instance field, and that variable becomes tainted via a library call, we taint the field.</p>
+<p>we do not model arbitrary interprocedural aliasing since it is not frequent in Java.</p>
+
+        <h4 id="summarization"   >
+          <a href="#summarization" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#summarization"></a> Summarization</h4>
+      
+<p>We use a summary-based context-sensitive analysis to gain additional precision.</p>
+<p>When a label can flow from a method argument to its return value without going through the heap, we mark the method as having a functional dependence on the argument. Then, on the caller side, we use this summary to model the behavior of the function with respect to its arguments.</p>
+<p>This summary-based method can make the dataflow more precise and faster.</p>
+
+        <h4 id="library-modeling"   >
+          <a href="#library-modeling" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#library-modeling"></a> Library Modeling</h4>
+      
+<p>Library modeling is necessary because it can reduce the size of the code that needs to be analyzed and gain the effect of an extra level of context-sensitivity for library calls.</p>
+<p>We assume that if a parameter to an API call depends on a configuration option, then the object on which it is invoked and the return value both also depend on that option.</p>
+
+        <h4 id="control-dependence"   >
+          <a href="#control-dependence" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#control-dependence"></a> Control Dependence</h4>
+      
+<p>We have explored alternative slicing approaches that included additional implicit flows; these caused only small changes to our results.</p>
+<p>The final output at each program point is the union of control and data dependencies at that point.</p>
+
+        <h3 id="fcs-2"   >
+          <a href="#fcs-2" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#fcs-2"></a> FCS</h3>
+      
+<p>Failure-context-sensitive analysis (FCS) is the technique for using stack traces to refine the precision of our error diagnosis.</p>
+
+        <h3 id="dynamic-approaches"   >
+          <a href="#dynamic-approaches" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#dynamic-approaches"></a> Dynamic Approaches</h3>
+      
+
+        <h4 id="instrumented-configuration-reads"   >
+          <a href="#instrumented-configuration-reads" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#instrumented-configuration-reads"></a> instrumented configuration reads</h4>
+      
+<p>The value of a configuration option that is never read cannot affect the program. Therefore, this method records which options are read and where.</p>
+
+        <h4 id="instrumented-configuration-flow"   >
+          <a href="#instrumented-configuration-flow" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#instrumented-configuration-flow"></a> instrumented configuration flow</h4>
+      
+<p>In addition to dynamically monitoring option reads, we track the flow of labeled objects through the program dynamically.</p>
+<p>.When a configuration value is returned by a method, that value and the associated option name are recorded in a lookup table. This table is kept in the memory of the instrumented process.</p>
+<p>At each new invocation, the options associated with each parameter are written to disk.</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ END ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">Author: </span><span class="copyright-author__value"><a href="https://fanweneddie.github.io/blogs">Wen Fan</a></span></div><div class="copyright-link"><span class="copyright-link__name">Link: </span><span class="copyright-link__value"><a href="https://fanweneddie.github.io/blogs/2022/01/15/precompute-note/">https://fanweneddie.github.io/blogs/2022/01/15/precompute-note/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">Copyright: </span><span class="copyright-notice__value">All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> unless stating additionally</span></div></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/blogs/2022/01/15/Lotrack-note/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">Note of Lotrack</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/blogs/2022/01/15/chianina-note/"><span class="paginator-prev__text">Note of Chianina</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">Catalog</span><span class="sidebar-nav-ov">Overview</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#introduction"><span class="toc-number">1.</span> <span class="toc-text">
+           Introduction</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#fcs"><span class="toc-number">2.</span> <span class="toc-text">
+           FCS</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#model"><span class="toc-number">3.</span> <span class="toc-text">
+           Model</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#crash-example"><span class="toc-number">3.1.</span> <span class="toc-text">
+           Crash example:</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#approach"><span class="toc-number">3.2.</span> <span class="toc-text">
+           Approach</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#heuristics"><span class="toc-number">3.2.1.</span> <span class="toc-text">
+           heuristics:</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#implementation"><span class="toc-number">3.3.</span> <span class="toc-text">
+           Implementation</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#static-analysis"><span class="toc-number">3.3.1.</span> <span class="toc-text">
+           Static Analysis</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#points-to-analysis"><span class="toc-number">3.3.1.1.</span> <span class="toc-text">
+           Points-to Analysis</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#finding-configuration"><span class="toc-number">3.3.1.2.</span> <span class="toc-text">
+           Finding Configuration</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#dataflow"><span class="toc-number">3.3.1.3.</span> <span class="toc-text">
+           Dataflow</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#summarization"><span class="toc-number">3.3.1.4.</span> <span class="toc-text">
+           Summarization</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#library-modeling"><span class="toc-number">3.3.1.5.</span> <span class="toc-text">
+           Library Modeling</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#control-dependence"><span class="toc-number">3.3.1.6.</span> <span class="toc-text">
+           Control Dependence</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#fcs-2"><span class="toc-number">3.3.2.</span> <span class="toc-text">
+           FCS</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#dynamic-approaches"><span class="toc-number">3.3.3.</span> <span class="toc-text">
+           Dynamic Approaches</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#instrumented-configuration-reads"><span class="toc-number">3.3.3.1.</span> <span class="toc-text">
+           instrumented configuration reads</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#instrumented-configuration-flow"><span class="toc-number">3.3.3.2.</span> <span class="toc-text">
+           instrumented configuration flow</span></a></li></ol></li></ol></li></ol></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="https://fanweneddie.github.io/img/profile.png" alt="avatar"></div><p class="sidebar-ov-author__text">Wen Fan</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://fanweneddie.github.io" target="_blank" rel="noopener" data-popover="Homepage" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fas fa-home"></i></span></a><a class="sidebar-ov-social-item" href="https://fanweneddie.github.io/personal/WenFan_CV.pdf" target="_blank" rel="noopener" data-popover="CV" data-popover-pos="up"><span class="sidebar-ov-social-item__icon">CV</span></a><a class="sidebar-ov-social-item" href="https://github.com/fanweneddie" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="mailto:eddie@mail.ustc.edu.cn" target="_blank" rel="noopener" data-popover="Email" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fas fa-envelope"></i></span></a></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/blogs/archives/"><div class="sidebar-ov-state-item__count">23</div><div class="sidebar-ov-state-item__name">Archives</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/blogs/categories/"><div class="sidebar-ov-state-item__count">2</div><div class="sidebar-ov-state-item__name">Categories</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="Creative Commons" data-popover-pos="up"><img src="/blogs/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">You have read </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2022</span><span class="footer__icon"><i class="fas fa-heart"></i></span><span>Wen Fan</span></div><div><span>Powered by <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a></span><span> v6.0.0</span><span class="footer__devider">|</span><span>Theme - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.2</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><link href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/katex.min.css" rel="stylesheet" type="text/css"><link href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/contrib/copy-tex.css" rel="stylesheet" type="text/css"><script src="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/contrib/copy-tex.min.js"></script><script src="/blogs/js/utils.js?v=2.6.2"></script><script src="/blogs/js/stun-boot.js?v=2.6.2"></script><script src="/blogs/js/scroll.js?v=2.6.2"></script><script src="/blogs/js/header.js?v=2.6.2"></script><script src="/blogs/js/sidebar.js?v=2.6.2"></script></body></html>

@@ -1,0 +1,116 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/blogs/images/icons/favicon-16x16.png?v=2.6.2" type="image/png" sizes="16x16"><link rel="icon" href="/blogs/images/icons/favicon-32x32.png?v=2.6.2" type="image/png" sizes="32x32"><meta name="description" content="This is the note of paper &quot;Snowboard&quot; by Sishuai Gong et al. at SOSP21.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Note of Snowboard">
+<meta property="og:url" content="https://fanweneddie.github.io/blogs/2022/01/15/snowboard-note/index.html">
+<meta property="og:site_name" content="Wen Fan&#39;s blog">
+<meta property="og:description" content="This is the note of paper &quot;Snowboard&quot; by Sishuai Gong et al. at SOSP21.">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/snowboard/PMC_detection.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/snowboard/PMC_test.png">
+<meta property="article:published_time" content="2022-01-15T09:27:19.000Z">
+<meta property="article:modified_time" content="2022-01-15T09:54:36.157Z">
+<meta property="article:author" content="Wen Fan">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://fanweneddie.github.io/blogs/pictures/snowboard/PMC_detection.png"><title>Note of Snowboard | Wen Fan's blog</title><link ref="canonical" href="https://fanweneddie.github.io/blogs/2022/01/15/snowboard-note/"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/blogs/css/index.css?v=2.6.2"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/blogs/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: undefined,
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"simple","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: false,
+  pjax: undefined,
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"Copy","copySuccess":"Copy Success","copyError":"Copy Error"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 6.0.0"></head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">Home</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">Archives</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">Categories</span></a></div></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Note of Snowboard</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">Created</span><span class="post-meta-item__value">2022-01-15</span></span><span class="post-meta-item post-meta-item--updatetime"><span class="post-meta-item__icon"><i class="far fa-calendar-check"></i></span><span class="post-meta-item__info">Updated</span><span class="post-meta-item__value">2022-01-15</span></span></div></header><div class="post-body"><p>This is the note of paper <span class="exturl"><a class="exturl__link"   target="_blank" rel="noopener" href="https://www.cs.purdue.edu/homes/sishuai/pdf/sosp21-snowboard.pdf" >“Snowboard: Finding Kernel Concurrency Bugs through Systematic Inter-thread Communication Analysis”</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> by Sishuai Gong et al. at SOSP21.</p>
+
+        <h1 id="introduction"   >
+          <a href="#introduction" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#introduction"></a> Introduction</h1>
+      
+<p>We expect that the potential interactions between different threads can be predicted off-line by analyzing the memory accesses of each thread when executed independently and sequentially.</p>
+<p>It starts with a corpus of sequential (single-threaded) tests (provided by a traditional fuzzing tool).</p>
+<p>It then groups pairs of tests—a writer and a reader—that access the same memory location, thereby constituting a potential memory communication (PMC).</p>
+<p>Snowboard aims to generate concurrency tests likely to uncover concurrency bugs in software. It has several abilities:</p>
+<ul>
+<li>An external tool produces a corpus of sequential tests.</li>
+<li>An execution framework runs chosen tests, either sequentially or concurrently</li>
+<li>A bug detector to identify system failures</li>
+</ul>
+
+        <h1 id="design"   >
+          <a href="#design" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#design"></a> Design</h1>
+      
+<p>Snowboard uses a hybrid dynamic analysis on sequential tests. It executes them and profiles their memory accesses. It identifies PMC(potential memory communication)s between pairs of sequential tests based on their memory-access profiles.</p>
+<p>Snowboard defines a clustering strategy, which selects some PMC features to cluster them by.</p>
+<p>we can focus on counting uncommon PMCs types (e.g., clusters, as defined above) to rank concurrency tests for execution</p>
+
+        <h1 id="architecture"   >
+          <a href="#architecture" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#architecture"></a> Architecture</h1>
+      
+<ol>
+<li>Executes a corpus of kernel sequential tests and profiles their execution</li>
+<li>Gathers all profiled shared memory accesses from every sequential test and identifies PMCs in the kernel by selectively examining pairs of write and read accesses.</li>
+<li>Prunes and prioritizes the testing of uncommon PMCs using a set of heuristic clustering strategies.</li>
+<li>Executes generated concurrent tests, exploring interleavings that target the associated PMC.</li>
+</ol>
+
+        <h2 id="sequential-test-generation-and-profiling"   >
+          <a href="#sequential-test-generation-and-profiling" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#sequential-test-generation-and-profiling"></a> Sequential Test Generation and Profiling</h2>
+      
+<p>Snowboard uses a coverage metric exported by the generator (e.g., edge coverage) to select a subset of the generated tests that provide high coverage but low overlap of exercised behaviors.</p>
+<p>Snowboard dynamically profiles each test by recording a memory trace of the corresponding sequential kernel execution, collecting memory accesses—address range accessed, type of access, value read/written—and corresponding instruction addresses.</p>
+<p>Snowboard runs all sequential tests from the same, fixed initial kernel state.</p>
+<p>Snowboard uses a kernel fuzzing tool called Syzkaller.</p>
+
+        <h2 id="pmc-identification"   >
+          <a href="#pmc-identification" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#pmc-identification"></a> PMC identification</h2>
+      
+<p>Snowboard first gathers all shared memory accesses profiled from every sequential test and indexes them by the memory range they access.(Line 1~6)</p>
+<p>Then, for all pairs of reads and writes with overlapping memory ranges, it designates a pair as a PMC if the values written to and read from the shared memory range differ.(Line 8~15)</p>
+<img src="/blogs/pictures/snowboard/PMC_detection.png" alt="PMC_detection" style="zoom:67%;" />
+<div align = "center">Figure 1: PMC detection</div> 
+
+        <h2 id="pmc-clustering"   >
+          <a href="#pmc-clustering" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#pmc-clustering"></a> PMC clustering</h2>
+      
+<p>It is not feasible to reproduce all PMC. So the authors divide them into clusters to approximate each class of PMC.</p>
+<p>Given a clustering strategy choice, Snowboard clusters all PMCs, counts the cardinality of each cluster, and then selects the exemplar to test from each cluster.</p>
+
+        <h2 id="test-execution"   >
+          <a href="#test-execution" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#test-execution"></a> Test Execution</h2>
+      
+<p>During test execution, one PMC is chosen from each cluster in uncommon-to-common cluster order.</p>
+<p>A Snowboard concurrent test includes a scheduling hint: a PMC designating a write and read memory access in the respective writer/reader threads that should be explored.</p>
+<p>The scheduling component of the execution framework attempts to satisfy multiple goals:</p>
+<ul>
+<li>trigger the PMC</li>
+<li>also do not trigger the PMC ???</li>
+<li>obtain meaningful executions</li>
+</ul>
+<p>The PMC exploration algorithm is shown below.</p>
+<img src="/blogs/pictures/snowboard/PMC_test.png" alt="PMC_test" style="zoom:80%;" />
+<div align = "center">Figure 2: PMC test</div> 
+<p>It executes the two tests as separate user-space processes—recall we do not allow the user-space portions of tests to share memory. Right before every instruction, the scheduler may switch to the other test thread, depending on the previous instruction. This switch decision always happens after a memory access.</p>
+<p>At the end of the trial, Snowboard checks if there is a different PMC whose read and write appears in the accesses of the just-concluded trial. If so, that PMC is added into the set of PMCs under test, and in subsequent trials.</p>
+<p>Snowboard observes the last access right before a PMC access and remembers it for future trials of the concurrent test as flags.</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ END ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">Author: </span><span class="copyright-author__value"><a href="https://fanweneddie.github.io/blogs">Wen Fan</a></span></div><div class="copyright-link"><span class="copyright-link__name">Link: </span><span class="copyright-link__value"><a href="https://fanweneddie.github.io/blogs/2022/01/15/snowboard-note/">https://fanweneddie.github.io/blogs/2022/01/15/snowboard-note/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">Copyright: </span><span class="copyright-notice__value">All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> unless stating additionally</span></div></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/blogs/2022/01/15/integrity-constraint-note/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">Note of Data Structure Refinements</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/blogs/2022/01/15/dependency-note/"><span class="paginator-prev__text">Note of Configuration Dependencies</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">Catalog</span><span class="sidebar-nav-ov">Overview</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#introduction"><span class="toc-number">1.</span> <span class="toc-text">
+           Introduction</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#design"><span class="toc-number">2.</span> <span class="toc-text">
+           Design</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#architecture"><span class="toc-number">3.</span> <span class="toc-text">
+           Architecture</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#sequential-test-generation-and-profiling"><span class="toc-number">3.1.</span> <span class="toc-text">
+           Sequential Test Generation and Profiling</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#pmc-identification"><span class="toc-number">3.2.</span> <span class="toc-text">
+           PMC identification</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#pmc-clustering"><span class="toc-number">3.3.</span> <span class="toc-text">
+           PMC clustering</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#test-execution"><span class="toc-number">3.4.</span> <span class="toc-text">
+           Test Execution</span></a></li></ol></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="https://fanweneddie.github.io/img/profile.png" alt="avatar"></div><p class="sidebar-ov-author__text">Wen Fan</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://fanweneddie.github.io" target="_blank" rel="noopener" data-popover="Homepage" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fas fa-home"></i></span></a><a class="sidebar-ov-social-item" href="https://fanweneddie.github.io/personal/WenFan_CV.pdf" target="_blank" rel="noopener" data-popover="CV" data-popover-pos="up"><span class="sidebar-ov-social-item__icon">CV</span></a><a class="sidebar-ov-social-item" href="https://github.com/fanweneddie" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="mailto:eddie@mail.ustc.edu.cn" target="_blank" rel="noopener" data-popover="Email" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fas fa-envelope"></i></span></a></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/blogs/archives/"><div class="sidebar-ov-state-item__count">23</div><div class="sidebar-ov-state-item__name">Archives</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/blogs/categories/"><div class="sidebar-ov-state-item__count">2</div><div class="sidebar-ov-state-item__name">Categories</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="Creative Commons" data-popover-pos="up"><img src="/blogs/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">You have read </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2022</span><span class="footer__icon"><i class="fas fa-heart"></i></span><span>Wen Fan</span></div><div><span>Powered by <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a></span><span> v6.0.0</span><span class="footer__devider">|</span><span>Theme - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.2</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><link href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/katex.min.css" rel="stylesheet" type="text/css"><link href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/contrib/copy-tex.css" rel="stylesheet" type="text/css"><script src="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/contrib/copy-tex.min.js"></script><script src="/blogs/js/utils.js?v=2.6.2"></script><script src="/blogs/js/stun-boot.js?v=2.6.2"></script><script src="/blogs/js/scroll.js?v=2.6.2"></script><script src="/blogs/js/header.js?v=2.6.2"></script><script src="/blogs/js/sidebar.js?v=2.6.2"></script></body></html>

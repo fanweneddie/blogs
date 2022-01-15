@@ -1,0 +1,108 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/blogs/images/icons/favicon-16x16.png?v=2.6.2" type="image/png" sizes="16x16"><link rel="icon" href="/blogs/images/icons/favicon-32x32.png?v=2.6.2" type="image/png" sizes="32x32"><meta name="description" content="This is the note of paper &quot;Tracking Load-time Configuration Options&quot; by Max Lillack et al. at ASE’14.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Note of Lotrack">
+<meta property="og:url" content="https://fanweneddie.github.io/blogs/2022/01/15/Lotrack-note/index.html">
+<meta property="og:site_name" content="Wen Fan&#39;s blog">
+<meta property="og:description" content="This is the note of paper &quot;Tracking Load-time Configuration Options&quot; by Max Lillack et al. at ASE’14.">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/lotrack/taint-tracking.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/lotrack/create_constraint.png">
+<meta property="article:published_time" content="2022-01-15T09:16:04.000Z">
+<meta property="article:modified_time" content="2022-01-15T09:31:02.293Z">
+<meta property="article:author" content="Wen Fan">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://fanweneddie.github.io/blogs/pictures/lotrack/taint-tracking.png"><title>Note of Lotrack | Wen Fan's blog</title><link ref="canonical" href="https://fanweneddie.github.io/blogs/2022/01/15/Lotrack-note/"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/blogs/css/index.css?v=2.6.2"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/blogs/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: undefined,
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"simple","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: false,
+  pjax: undefined,
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"Copy","copySuccess":"Copy Success","copyError":"Copy Error"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 6.0.0"></head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">Home</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">Archives</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">Categories</span></a></div></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Note of Lotrack</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">Created</span><span class="post-meta-item__value">2022-01-15</span></span><span class="post-meta-item post-meta-item--updatetime"><span class="post-meta-item__icon"><i class="far fa-calendar-check"></i></span><span class="post-meta-item__info">Updated</span><span class="post-meta-item__value">2022-01-15</span></span></div></header><div class="post-body"><p>This is the note of paper <span class="exturl"><a class="exturl__link"   target="_blank" rel="noopener" href="https://www.bodden.de/pubs/lkb14tracking.pdf" >“Tracking Load-time Configuration Options”</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> by Max Lillack et al. at ASE’14.</p>
+
+        <h1 id="introduction"   >
+          <a href="#introduction" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#introduction"></a> Introduction</h1>
+      
+<p>For load-time parameters, identifying the code fragments that implement an option manually requires tedious effort.</p>
+<p><code>Lotrack</code> aims at identifying all code that is included if and only if a specific configuration option or combination of configuration options is selected.</p>
+<p>To increase precision, we exploit the insight that configuration options are typically used differently from other values in the code: <strong>Values for configuration options are often passed along unmodified and are used in simple conditions, making their tracking comparatively easy and precise.</strong></p>
+<p>Technically, <code>Lotrack</code> extends a <strong>context, flow, object and field-sensitive taint analysis</strong> to build a configuration map describing how code fragments depend on configuration options.</p>
+
+        <h1 id="problem"   >
+          <a href="#problem" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#problem"></a> Problem</h1>
+      
+<p>Our goal is to trace configuration options to the code fragments implementing them.</p>
+<p>Technically, we seek to establish a configuration map which maps every code fragment to a configuration constraint describing in which configurations the code fragment may be executed in the program, that is, which configuration options or combinations of options need to be selected or deselected.</p>
+<p>Here are the assumptions:</p>
+<ol>
+<li>Configuration options are set at program load time and do not change during the execution of the program.</li>
+<li>The API calls to load configuration values are known and can be identified syntactically; the possible values of configuration options are finite and known.</li>
+</ol>
+
+        <h1 id="approach"   >
+          <a href="#approach" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#approach"></a> Approach</h1>
+      
+<p>Static taint analysis</p>
+<p>About how to handle native functions and environment interactions, we allow false negatives and only create taints for results of native-method calls or environment interactions if they have been parameterized with a tainted value.</p>
+<p>To track configuration values, <code>Lotrack</code> implements several extensions to the taint analysis. In particular, <code>Lotrack</code> tracks a taint for each possible value of a variable and tracks a <strong>constraint</strong> under which configuration this variable has this value. Second, <code>Lotrack</code> does not propagate all taints directly, but analyzes, restricts, and merges constraints at control-flow decisions.</p>
+<p>The analysis creates a taint for every possible value because options usually have small finite domains.</p>
+<p>The taint information denoted by the variable and the tracked value together with the constraint constitute a <strong>fact</strong>. A fact is no longer propagated, however, if the corresponding constraint is unsatisfiable.</p>
+<p>If a control-flow decision depends on a tainted value, we derive constraints for the control-flow branches by evaluating the branching condition.</p>
+
+        <h1 id="algorithm"   >
+          <a href="#algorithm" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#algorithm"></a> Algorithm</h1>
+      
+<p><code>Lotrack</code> works on top of a taint analysis which provides the functionality of taint creation and propagation as well as common features of static program analysis like call-graph creation and alias analysis.</p>
+<p>The analysis works on the level of summary edges. An edge consists of</p>
+<ul>
+<li>a source fact,</li>
+<li>a target fact,</li>
+<li>the source statement</li>
+<li>the target statement</li>
+<li>a constraint.</li>
+</ul>
+<p>The taint-tracking algorithm is shown below:</p>
+<img src="/blogs/pictures/lotrack/taint-tracking.png" alt="taint-tracking" style="zoom: 67%;" />
+<p>It is a worklist algorithm. Its initial edge has a constraint of <code>true</code>.</p>
+<p>Using a normal taint analysis, the possible taints at the successor are determined based on the current edge(line 7).</p>
+<p>Line 10 in Algorithm 1 combines the resulting constraint for the edge from Algorithm 2 by conjoining it with the constraint propagated to this edge so far (Line 8).</p>
+<p>Facts are not propagated further if the resulting constraint is unsatisfiable.</p>
+<p>The algorithm of <code>createConstraint</code> is shown below:</p>
+<img src="/blogs/pictures/lotrack/create_constraint.png" alt="create_constraint" style="zoom: 80%;" />
+<p>This algorithm computes the constraint for the propagation of a fact along a control-flow edge using the information in the <strong>edge</strong> as well as <strong>other facts for the same statement</strong>.</p>
+<p>An API access or an if statement can lead to the creation of new constraints.</p>
+<p>For line 25 to line 31, the algorithm creates an initial edge pointing to the fact representing the accessed option. If the value can not be tracked we can return a <code>?</code>.</p>
+<p>For line 32 to line 48, a new constraint is created if the condition of the if statement is dependent on a tainted value.</p>
+<ul>
+<li>
+<p>Line 24 to line 41 tells us that the constraints of all matching facts are combined as a disjunction to create the most general constraint for this branching statement.</p>
+</li>
+<li>
+<p>Line 43 shows that the resulting constraint is used for the branch edge and its negation for the fall-through edge.</p>
+</li>
+<li>
+<p>Line 46 tells us that if no fact matched the condition, the algorithm returns true, which indicates that the condition is not dependent on any configuration option and therefore should not change the constraint of any facts.</p>
+</li>
+</ul>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ END ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">Author: </span><span class="copyright-author__value"><a href="https://fanweneddie.github.io/blogs">Wen Fan</a></span></div><div class="copyright-link"><span class="copyright-link__name">Link: </span><span class="copyright-link__value"><a href="https://fanweneddie.github.io/blogs/2022/01/15/Lotrack-note/">https://fanweneddie.github.io/blogs/2022/01/15/Lotrack-note/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">Copyright: </span><span class="copyright-notice__value">All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> unless stating additionally</span></div></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/blogs/2022/01/15/dependency-note/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">Note of Configuration Dependencies</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/blogs/2022/01/15/precompute-note/"><span class="paginator-prev__text">Note of Precomputing Configuration Error</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">Catalog</span><span class="sidebar-nav-ov">Overview</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#introduction"><span class="toc-number">1.</span> <span class="toc-text">
+           Introduction</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#problem"><span class="toc-number">2.</span> <span class="toc-text">
+           Problem</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#approach"><span class="toc-number">3.</span> <span class="toc-text">
+           Approach</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#algorithm"><span class="toc-number">4.</span> <span class="toc-text">
+           Algorithm</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="https://fanweneddie.github.io/img/profile.png" alt="avatar"></div><p class="sidebar-ov-author__text">Wen Fan</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://fanweneddie.github.io" target="_blank" rel="noopener" data-popover="Homepage" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fas fa-home"></i></span></a><a class="sidebar-ov-social-item" href="https://fanweneddie.github.io/personal/WenFan_CV.pdf" target="_blank" rel="noopener" data-popover="CV" data-popover-pos="up"><span class="sidebar-ov-social-item__icon">CV</span></a><a class="sidebar-ov-social-item" href="https://github.com/fanweneddie" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="mailto:eddie@mail.ustc.edu.cn" target="_blank" rel="noopener" data-popover="Email" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fas fa-envelope"></i></span></a></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/blogs/archives/"><div class="sidebar-ov-state-item__count">23</div><div class="sidebar-ov-state-item__name">Archives</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/blogs/categories/"><div class="sidebar-ov-state-item__count">2</div><div class="sidebar-ov-state-item__name">Categories</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="Creative Commons" data-popover-pos="up"><img src="/blogs/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">You have read </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2022</span><span class="footer__icon"><i class="fas fa-heart"></i></span><span>Wen Fan</span></div><div><span>Powered by <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a></span><span> v6.0.0</span><span class="footer__devider">|</span><span>Theme - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.2</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><link href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/katex.min.css" rel="stylesheet" type="text/css"><link href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/contrib/copy-tex.css" rel="stylesheet" type="text/css"><script src="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/contrib/copy-tex.min.js"></script><script src="/blogs/js/utils.js?v=2.6.2"></script><script src="/blogs/js/stun-boot.js?v=2.6.2"></script><script src="/blogs/js/scroll.js?v=2.6.2"></script><script src="/blogs/js/header.js?v=2.6.2"></script><script src="/blogs/js/sidebar.js?v=2.6.2"></script></body></html>
