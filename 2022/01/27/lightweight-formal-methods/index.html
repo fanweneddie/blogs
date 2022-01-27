@@ -1,0 +1,337 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/blogs/images/icons/favicon-16x16.png?v=2.6.2" type="image/png" sizes="16x16"><link rel="icon" href="/blogs/images/icons/favicon-32x32.png?v=2.6.2" type="image/png" sizes="32x32"><meta name="description" content="This is the note of paper &quot;Using Lightweight Formal Methods to Validate a Key-Value Storage Node in Amazon S3&quot; by James Bornholt et al. at SOSP&#39;21 (Best Paper!).">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Lightweight Formal Methods">
+<meta property="og:url" content="https://fanweneddie.github.io/blogs/2022/01/27/lightweight-formal-methods/index.html">
+<meta property="og:site_name" content="Wen Fan&#39;s blog">
+<meta property="og:description" content="This is the note of paper &quot;Using Lightweight Formal Methods to Validate a Key-Value Storage Node in Amazon S3&quot; by James Bornholt et al. at SOSP&#39;21 (Best Paper!).">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/lightweight/ShardStore_arch.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/lightweight/dependency_graph.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/lightweight/operations.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/lightweight/proptest_index.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/lightweight/Loom.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/lightweight/concurrency_1.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/lightweight/concurrency_2.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/lightweight/concurrency_3.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/lightweight/issue.png">
+<meta property="og:image" content="https://fanweneddie.github.io/blogs/pictures/lightweight/line_of_code.png">
+<meta property="article:published_time" content="2022-01-27T02:09:42.000Z">
+<meta property="article:modified_time" content="2022-01-27T02:15:29.717Z">
+<meta property="article:author" content="Wen Fan">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://fanweneddie.github.io/blogs/pictures/lightweight/ShardStore_arch.png"><title>Lightweight Formal Methods | Wen Fan's blog</title><link ref="canonical" href="https://fanweneddie.github.io/blogs/2022/01/27/lightweight-formal-methods/"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/blogs/css/index.css?v=2.6.2"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/blogs/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: undefined,
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"simple","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: false,
+  pjax: undefined,
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"Copy","copySuccess":"Copy Success","copyError":"Copy Error"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 6.0.0"></head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">Home</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">Archives</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/blogs/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">Categories</span></a></div></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Lightweight Formal Methods</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">Created</span><span class="post-meta-item__value">2022-01-27</span></span><span class="post-meta-item post-meta-item--updatetime"><span class="post-meta-item__icon"><i class="far fa-calendar-check"></i></span><span class="post-meta-item__info">Updated</span><span class="post-meta-item__value">2022-01-27</span></span></div></header><div class="post-body"><p>This is the note of paper <span class="exturl"><a class="exturl__link"   target="_blank" rel="noopener" href="https://assets.amazon.science/07/6c/81bfc2c243249a8b8b65cc2135e4/using-lightweight-formal-methods-to-validate-a-key-value-storage-node-in-amazon-s3.pdf" >“Using Lightweight Formal Methods to Validate a Key-Value Storage Node in Amazon S3”</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> by James Bornholt et al. at SOSP’21 (Best Paper!).</p>
+
+        <h1 id="abstraction"   >
+          <a href="#abstraction" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#abstraction"></a> Abstraction</h1>
+      
+<p>This paper reports our experience applying lightweight formal methods to validate the correctness of ShardStore, a new key-value storage node implementation for the Amazon S3 cloud object storage service. Here, “lightweight” means the verification by non-formal-method experts over software and specification that evolve over time. Our approach decomposes correctness into independent properties and develops executable reference models as specifications to be checked against the implementations.</p>
+
+        <h1 id="introduction"   >
+          <a href="#introduction" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#introduction"></a> Introduction</h1>
+      
+<p>Amazon S3 is building a new key-value storage node called <code>ShardStore</code>. To achieve high performance, <code>ShardStore</code> combines a soft-update crash consistency protocol, extensive concurrency, append-only IO and garbage collection to support diverse storage media, and other complicating factors.</p>
+<p>In order to validate deep properties of the implementation (e.g. functional correctness of API-level calls, crash consistency of on-disk data structures, and concurrent correctness of API calls), we use formal methods. In return for being lightweight and easy to apply, we can accept weaker correctness guarantees than full formal verification.</p>
+<p>In this approach, we have three elements:</p>
+<ul>
+<li>We distill specifications of desired behavior using <strong>executable reference models</strong> that define the expected semantics of the system.</li>
+<li>To make the best use of available lightweight formal methods tools, we decompose these properties and apply the most appropriate tool for each component.</li>
+<li>We ensure that the results of this validation effort remain relevant as the system evolves by training the engineering team to develop their own reference models and checks.</li>
+</ul>
+
+        <h1 id="shardstore"   >
+          <a href="#shardstore" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#shardstore"></a> ShardStore</h1>
+      
+<p>The <code>ShardStore</code> key-value store is used by S3 as a storage node. Each storage node stores shards of customer objects, which are replicated across multiple nodes for durability.</p>
+
+        <h2 id="design"   >
+          <a href="#design" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#design"></a> Design</h2>
+      
+
+        <h3 id="overview"   >
+          <a href="#overview" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#overview"></a> Overview</h3>
+      
+<p><code>ShardStore</code>'s key-value store comprises a LSM tree but with shard data stored outside the tree to reduce write amplification, similar to WiscKey. Its architecture is shown in Figure 1. The LSM tree maps each <strong>shard</strong> identifier to a list of (pointers to) <strong>chunks</strong>, each of which is stored within an <strong>extent</strong>, which is an contiguous region of physical storage on a disk. In each extent, writes are sequential tracked by a write pointer. Unused chunk space can be exploited by moving chunks to elsewhere on disk. (Shown in the transition from (a) to (b))</p>
+<img src="/blogs/pictures/lightweight/ShardStore_arch.png" alt="ShardStore_arch" style="zoom:67%;" />
+<div align = "center">Figure 1: ShardStore Architecture</div>
+<p><code>ShardStore</code> spreads shared data across extents, which gives us flexibility in placing each shard’s data on disk to optimize for expected heat and access patterns.</p>
+
+        <h3 id="chunk-storage-and-chunk-reclamation"   >
+          <a href="#chunk-storage-and-chunk-reclamation" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#chunk-storage-and-chunk-reclamation"></a> Chunk Storage and Chunk Reclamation</h3>
+      
+<p>A chunk store abstraction arranges the mapping of chunks onto extents. So it offers<span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>P</mi><mi>U</mi><mi>T</mi><mo stretchy="false">(</mo><mi>d</mi><mi>a</mi><mi>t</mi><mi>a</mi><mo stretchy="false">)</mo><mo>→</mo><mi>l</mi><mi>o</mi><mi>c</mi><mi>a</mi><mi>t</mi><mi>o</mi><mi>r</mi></mrow><annotation encoding="application/x-tex">PUT(data) \rightarrow locator</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathdefault" style="margin-right:0.13889em;">P</span><span class="mord mathdefault" style="margin-right:0.10903em;">U</span><span class="mord mathdefault" style="margin-right:0.13889em;">T</span><span class="mopen">(</span><span class="mord mathdefault">d</span><span class="mord mathdefault">a</span><span class="mord mathdefault">t</span><span class="mord mathdefault">a</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.69444em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.01968em;">l</span><span class="mord mathdefault">o</span><span class="mord mathdefault">c</span><span class="mord mathdefault">a</span><span class="mord mathdefault">t</span><span class="mord mathdefault">o</span><span class="mord mathdefault" style="margin-right:0.02778em;">r</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>G</mi><mi>E</mi><mi>T</mi><mo stretchy="false">(</mo><mi>l</mi><mi>o</mi><mi>c</mi><mi>a</mi><mi>t</mi><mi>o</mi><mi>r</mi><mo stretchy="false">)</mo><mo>→</mo><mi>d</mi><mi>a</mi><mi>t</mi><mi>a</mi></mrow><annotation encoding="application/x-tex">GET(locator) \rightarrow data</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathdefault">G</span><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="mord mathdefault" style="margin-right:0.13889em;">T</span><span class="mopen">(</span><span class="mord mathdefault" style="margin-right:0.01968em;">l</span><span class="mord mathdefault">o</span><span class="mord mathdefault">c</span><span class="mord mathdefault">a</span><span class="mord mathdefault">t</span><span class="mord mathdefault">o</span><span class="mord mathdefault" style="margin-right:0.02778em;">r</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.69444em;vertical-align:0em;"></span><span class="mord mathdefault">d</span><span class="mord mathdefault">a</span><span class="mord mathdefault">t</span><span class="mord mathdefault">a</span></span></span></span> as interfaces.</p>
+<p>Since extents are append-only, deleting a shard cannot immediately reuse the free space. Therefore, the chunk store has a reclamation background task that performs garbage collection.</p>
+<p>Reclamation first selects an extent and finds all of its chunks; It then reverse looks up the chunks in LSM tree and finds their corresponding index (if possible); Chunks that are still referenced in the index are evacuated to a new extent while unreferenced chunks are simply dropped. Once the entire extent has been scanned, its write pointer is reset and it can be reused.</p>
+<p>Note that resetting an extent’s write pointer can make it unreadable, so the chunk store must enforce a crash-consistent ordering for chunk evacuation, index updates and extent resets.</p>
+
+        <h3 id="rpc-interface-and-append-only-io"   >
+          <a href="#rpc-interface-and-append-only-io" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#rpc-interface-and-append-only-io"></a> RPC Interface and Append-only I/O</h3>
+      
+<p><code>ShardStore</code> runs on storage hosts with multiple HDDs. Clients interact with <code>ShardStore</code> through a shared RPC interface that steers requests to target disks based on shard IDs.</p>
+<p><code>ShardStore</code> has its own implementation of the append operation. It does this by tracking a soft write pointer for each extent, internally translating extent appends to write system calls and persisting the soft write pointer for each extent in a superblock.</p>
+
+        <h2 id="crash-consistency"   >
+          <a href="#crash-consistency" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#crash-consistency"></a> Crash Consistency</h2>
+      
+<p><code>ShardStore</code> uses a crash consistency approach inspired by <em>soft updates</em> ( just as <em>write ahead log</em>).  Soft updates require global reasoning about all possible orderings of writebacks to disk.  In response for that, <code>ShardStore</code> uses a <em>Dependency</em> type to construct dependency graphs at run time that dictate valid write orderings; The append will not be issued to disk until the input dependency has been persisted. Therefore, writebacks respect dependencies.</p>
+<p>Figure 2 shows a dependency graph. Here, each <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>P</mi><mi>U</mi><mi>T</mi></mrow><annotation encoding="application/x-tex">PUT</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.13889em;">P</span><span class="mord mathdefault" style="margin-right:0.10903em;">U</span><span class="mord mathdefault" style="margin-right:0.13889em;">T</span></span></span></span> has three writes:</p>
+<ul>
+<li>The shard data in a chunk is written to an extent</li>
+<li>The index entry for the put is flushed into LSM tree</li>
+<li>The metadata for the LSM tree is updated</li>
+</ul>
+<p>In Figure 2, <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>P</mi><mi>U</mi><mi>T</mi><mn>1</mn></mrow><annotation encoding="application/x-tex">PUT1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.13889em;">P</span><span class="mord mathdefault" style="margin-right:0.10903em;">U</span><span class="mord mathdefault" style="margin-right:0.13889em;">T</span><span class="mord">1</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>P</mi><mi>U</mi><mi>T</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">PUT2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.13889em;">P</span><span class="mord mathdefault" style="margin-right:0.10903em;">U</span><span class="mord mathdefault" style="margin-right:0.13889em;">T</span><span class="mord">2</span></span></span></span> shares the same extent, index entry and LSM meta data, and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>P</mi><mi>U</mi><mi>T</mi><mn>3</mn></mrow><annotation encoding="application/x-tex">PUT3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.13889em;">P</span><span class="mord mathdefault" style="margin-right:0.10903em;">U</span><span class="mord mathdefault" style="margin-right:0.13889em;">T</span><span class="mord">3</span></span></span></span> is only on different extent.</p>
+<img src="/blogs/pictures/lightweight/dependency_graph.png" alt="dependency_graph" style="zoom:67%;" />
+<div align = "center">Figure 2: Dependency graph</div>
+<p>Actually, single-node crash does not cause data loss since there exist replicated data. However, crash consistency issues can affect the cost and operational impact of storage node failures.</p>
+
+        <h1 id="validating-a-storage-system"   >
+          <a href="#validating-a-storage-system" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#validating-a-storage-system"></a> Validating a Storage System</h1>
+      
+<p><code>ShardStore</code> has some complex implementations:</p>
+<ul>
+<li>on-disk data structures</li>
+<li>concurrent access</li>
+<li>crash consistency</li>
+</ul>
+<p>In order to validate deep properties of <code>ShardStore</code>, we choose formal methods. In order to reduce the involvement of formal methods experts, we use a lightweight approach to be developed by the engineering team itself.</p>
+
+        <h2 id="correctness-properties"   >
+          <a href="#correctness-properties" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#correctness-properties"></a> Correctness Properties</h2>
+      
+<p>We focus on <strong>durability</strong> (in the absence of crashes) and <strong>consistency properties</strong> (in the presence of crashes), which are hard to establish by traditional testing alone.</p>
+<p>The durability property is that the model and implementation remain in equivalent states after each API call. Here, we define equivalence as having the same key-value mapping. However, this property is too strong and does not permit two types of non determinism: crash (may cause data loss) and concurrency (may cause overlap operations).</p>
+<p>Hence, we decompose durability property into three parts and reason about each separately:</p>
+<ul>
+<li>For sequential crash-free executions, we check for equivalence.</li>
+<li>For sequential crashing executions, we can define which data can be lost after a crash, and check a weaker equivalence.</li>
+<li>For concurrent crash-free executions, we write separate reference models and check linearizability.</li>
+</ul>
+<p>This decomposition aids the specification effort by allowing us to separate concerns - the initial reference models are simple and easy to audit, and then we extend them separately to handle more complex properties.</p>
+
+        <h2 id="reference-models"   >
+          <a href="#reference-models" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#reference-models"></a> Reference Models</h2>
+      
+<p>For each <code>ShardStore</code> component, we developed a reference mode - an executable specification that is a simpler implementation of the component.</p>
+<p>It is difficult yo enforce strict equality for failures.</p>
+<p>Implementing the reference model as executable code in the same language can make it easier to keep up to date.</p>
+<p>The reduced complexity of the reference model makes it possible in principle to verify desirable properties of the model itself.</p>
+
+        <h1 id="conformance-checking"   >
+          <a href="#conformance-checking" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#conformance-checking"></a> Conformance Checking</h1>
+      
+<p>How to check whether the implementation conforms to the reference model according o the correctness properties above?</p>
+
+        <h2 id="property-based-testing"   >
+          <a href="#property-based-testing" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#property-based-testing"></a> Property-Based Testing</h2>
+      
+<p>Property-based testing generates inputs to a test case and checks that a user-provided property holds when that test is run. It can be thought of as an extension of fuzzing. We take a sequence of operations as input. For each operation in the sequence, the test case</p>
+<ul>
+<li>applies the operation to both reference model and implementation</li>
+<li>compares the output of each for equivalence</li>
+<li>checks the invariance</li>
+</ul>
+<p>For example, the <code>IndexOp</code> enumeration in Figure 3 defines some basic operations.</p>
+<div align=center>
+<img src="/blogs/pictures/lightweight/operations.png" alt="operations" style="zoom:67%;" />
+</div>
+<div align = "center">Figure 3: Operations</div>
+<p>Each test run chooses a set of arbitrary sequences of operations with arbitrary arguments, and invokes <code>proptest_index</code> in Figure 4 to test the sequence. For each operation in the sequence, <code>proptest_index</code> applies it to both the implementation and the reference, compares the results. Finally, it performs additional invariant checks.</p>
+<img src="/blogs/pictures/lightweight/proptest_index.png" alt="proptest_index" style="zoom:67%;" />
+<div align = "center">Figure 4: Operation Testing</div>
+
+        <h2 id="coverage"   >
+          <a href="#coverage" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#coverage"></a> Coverage</h2>
+      
+<p>In order to reduce the risk of missing bugs, we increase the scale of testing. To reach some interesting states of the system, we introduce domain knowledge into argument selection via biasing.</p>
+
+        <h3 id="argument-bias"   >
+          <a href="#argument-bias" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#argument-bias"></a> Argument Bias</h3>
+      
+<p>In order to have a better test effect, we bias the argument. For example, when generating keys for <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>G</mi><mi>e</mi><mi>t</mi></mrow><annotation encoding="application/x-tex">Get</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathdefault">G</span><span class="mord mathdefault">e</span><span class="mord mathdefault">t</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>P</mi><mi>u</mi><mi>t</mi></mrow><annotation encoding="application/x-tex">Put</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.13889em;">P</span><span class="mord mathdefault">u</span><span class="mord mathdefault">t</span></span></span></span> operations, we prefer to <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>G</mi><mi>e</mi><mi>t</mi></mrow><annotation encoding="application/x-tex">Get</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathdefault">G</span><span class="mord mathdefault">e</span><span class="mord mathdefault">t</span></span></span></span> the keys that were <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>P</mi><mi>u</mi><mi>t</mi></mrow><annotation encoding="application/x-tex">Put</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathdefault" style="margin-right:0.13889em;">P</span><span class="mord mathdefault">u</span><span class="mord mathdefault">t</span></span></span></span> earlier; We also select some corner cases, which are frequent causes of bugs.</p>
+<p>However, sometimes the benefit of argument bias is limited, and it may introduce some assumptions into our tests. Our methodology trusts default randomness and only introduces bias where we have quantitative evidence that is beneficial.</p>
+
+        <h3 id="coverage-metrics"   >
+          <a href="#coverage-metrics" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#coverage-metrics"></a> Coverage Metrics</h3>
+      
+<p>As code evolves, new functionality and component may affect the coverage of property-based tests and increase the chance of missing bugs. To mitigate the risks, out test harnesses generate code coverage metrics for the implementation code to identify blind spots.</p>
+
+        <h2 id="minimization"   >
+          <a href="#minimization" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#minimization"></a> Minimization</h2>
+      
+<p>In order to simplify the debugging experience, most property-based testing tools automatically minimize the failing input. Given a failing sequence of operations, the testing tool repeatedly applies reduction heuristics to simplify the sequence until the reduced version no longer fails.</p>
+<p>We apply two design techniques to make the minimization process automated. First, we design <code>ShardStore</code> components to be as deterministic as possible; Second, we design our alphabet of operations with minimization heuristics in mind.</p>
+
+        <h2 id="failure-injection"   >
+          <a href="#failure-injection" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#failure-injection"></a> Failure Injection</h2>
+      
+<p>We also use property-based testing to check that <code>ShardStore</code> correctly handles failures in its environment. Here we consider three distinctive classes of environment failures:</p>
+<ul>
+<li>Fail-stop crashes (e.g. kernel panics)</li>
+<li>Disk IO failures (e.g. HDD failures)</li>
+<li>Resource exhaustion (e.g. out of memory)</li>
+</ul>
+
+        <h3 id="fail-stop-crashes"   >
+          <a href="#fail-stop-crashes" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#fail-stop-crashes"></a> Fail-stop Crashes</h3>
+      
+<p>Fail-stop crashes involve the <code>ShardStore</code> software itself crashing and recovering.</p>
+
+        <h3 id="disk-io-failures"   >
+          <a href="#disk-io-failures" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#disk-io-failures"></a> Disk IO Failures</h3>
+      
+<p>To test IO failures while <code>ShardStore</code> continues running, we extend our property-based tests to inject IO failures into their in-memory disk. For example, we import <code>FailDiskOnce(ExtId)</code> to cause the next IO to the chosen extent to fail.</p>
+<p>Failure injection requires us to relax the conformance check, as the reference model cannot tell which effects would be visible after an IO failure. Here, the harness tracks a simple “has failed” flag that relaxes equivalence checks between reference and implementation after a failure is injected.</p>
+
+        <h3 id="resource-exhaustion"   >
+          <a href="#resource-exhaustion" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#resource-exhaustion"></a> Resource Exhaustion</h3>
+      
+<p>It is difficult to apply property-based testing for resource exhaustion failures, because those tests need to distinguish real bugs (e.g. a space leak) from failures that are expected, which requires the accounting for the overheads.</p>
+
+        <h1 id="checking-crash-consistency"   >
+          <a href="#checking-crash-consistency" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#checking-crash-consistency"></a> Checking Crash Consistency</h1>
+      
+<p>We validate crash consistency by using the user-space dependencies. Each mutating <code>ShardStore</code> operation returns a <code>Dependency</code> object that can be polled to determine whether it has been persisted. We define two crash consistency properties:</p>
+<ul>
+<li>persistence: An operation is readable after a crash.</li>
+<li>forward progress: After a non-crashing shutdown, every operation’s dependency should indicate it is persistent.</li>
+</ul>
+<p>To check that the implementation satisfies these crash consistency properties, we extend the property-based testing approach to generate and check crash states.</p>
+
+        <h2 id="block-level-crash-states"   >
+          <a href="#block-level-crash-states" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#block-level-crash-states"></a> Block-level Crash States</h2>
+      
+<p>The <code>RebootType</code> parameter makes a single choice for each component about whether the entire state is flushed to disk.</p>
+<p>To increase the chance of finding bugs, the operation for the crash-consistency tests includes flush operations for each component that can be interleaved with other operations.</p>
+<p>However, this approach has not found additional bugs.</p>
+
+        <h1 id="checking-concurrent-executions"   >
+          <a href="#checking-concurrent-executions" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#checking-concurrent-executions"></a> Checking Concurrent Executions</h1>
+      
+<p>In practice, a production storage system like <code>ShardStore</code> is highly concurrent (e.g. each disk services several concurrent requests and background maintenance tasks). In order to check concurrent properties, we hand-wrote harnesses for key properties and validated them using <em>stateless model checking</em>.</p>
+
+        <h2 id="properties-and-tools"   >
+          <a href="#properties-and-tools" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#properties-and-tools"></a> Properties and Tools</h2>
+      
+<p>We would like to check that concurrent executions of <code>ShardStore</code> are linearizable with respect to the sequential reference models. Here, we use <code>Loom</code> stateless model checker to check concurrency properties. Since <code>Loom</code> cannot be scalable enough to check <code>ShardStore</code> tests, we developed the stateless model checker <code>Shuttle</code> that implements randomized algorithms such as probabilistic concurrency testing.</p>
+<p>Figure 5 shows an example of <code>Loom</code> for <code>ShardStore</code>'s LSM-tree-based index. It mocks out the persistent chunk storage and checks read-after-write consistency for a fixed read/write history.</p>
+<img src="/blogs/pictures/lightweight/Loom.png" alt="Loom" style="zoom:67%;" />
+<div align = "center">Figure 5: Example of Loom</div>
+
+        <h2 id="example"   >
+          <a href="#example" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#example"></a> Example</h2>
+      
+<p>There is another example of concurrency between compaction and reclamation.</p>
+<p>At first, there are 3 chunks on the disk (As is shown in Figure 6-1).</p>
+<img src="/blogs/pictures/lightweight/concurrency_1.png" alt="concurrency_1" style="zoom:67%;" />
+<div align = "center">Figure 6-1: Example of Concurrency</div>
+<p>During compaction, it stores the in-memory section of the LSM tree into a new chunk and write this chunk into extent 0 (As is shown in Figure 6-2).</p>
+<img src="/blogs/pictures/lightweight/concurrency_2.png" alt="concurrency_2" style="zoom:67%;" />
+<div align = "center">Figure 6-2: Example of Concurrency</div>
+<p>Before the next step of compaction that updates the in-memory metadata of the pointer to the new chunk, the reclamation thread performs a reclamation on extent 0. The reclamation evacuates the first two chunks to extent 2 and ignores the new chunk, since it has not  been referenced by a pointer yet (As is shown in Figure 6-3).</p>
+<img src="/blogs/pictures/lightweight/concurrency_3.png" alt="concurrency_3" style="zoom:67%;" />
+<div align = "center">Figure 6-3: Example of Concurrency</div>
+<p>Now when compaction finishes, it will introduce a dangling pointer to a chunk in extent 0. which is dropped by reclamation. The fix was to make compaction lock the extents that it writes new chunks into until it can update the metadata to point to them.</p>
+
+        <h1 id="other-properties"   >
+          <a href="#other-properties" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#other-properties"></a> Other Properties</h1>
+      
+<p>There are two more localized classes of issues that our existing approach would not detect.</p>
+
+        <h2 id="undefined-behavior"   >
+          <a href="#undefined-behavior" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#undefined-behavior"></a> Undefined Behavior</h2>
+      
+<p>As a low-level system, <code>ShardStore</code> requires a small amount of unsafe Rust code, mostly for interacting with block devices. To rule out this class of bugs, we run <code>ShardStore</code>'s test suite under the <code>Miri</code> interpreter, a dynamic analysis tool built that can detect certain classes of undefined behavior.</p>
+
+        <h2 id="serialization"   >
+          <a href="#serialization" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#serialization"></a> Serialization</h2>
+      
+<p>During serialization and deserialization, both bit rot and transient failures can corrupt on-disk data, and so we treat data read from disk as untrusted. We used <code>Crux</code>, a bounded symbolic evaluation engine to prove panic-freedom of our deserialization code.</p>
+
+        <h1 id="experience"   >
+          <a href="#experience" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#experience"></a> Experience</h1>
+      
+<p>Here is the experience of validating <code>ShardStore</code>.</p>
+
+        <h2 id="bugs-prevented"   >
+          <a href="#bugs-prevented" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#bugs-prevented"></a> Bugs Prevented</h2>
+      
+<p>Figure 7 presents some issues detected by the validation effort and they are categorized by their violated top-level property. Most issues relate to data integrity, while one concurrency issue (#12) was caused by a deadlock.</p>
+<p><img src="/blogs/pictures/lightweight/issue.png" alt="issue" /></p>
+<div align = "center">Figure 7: Issues</div>
+
+        <h2 id="validation-effort"   >
+          <a href="#validation-effort" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#validation-effort"></a> Validation Effort</h2>
+      
+<p>Figure 5 shows the size of <code>ShardStore</code> code base. The reference models and validation tests are only 13% of the total code base and 20% of the size of the implementation code.</p>
+<img src="/blogs/pictures/lightweight/line_of_code.png" alt="line_of_code" style="zoom:67%;" />
+<div align = "center">Figure 8: the Size of ShardStore Code Base</div>
+<p>After the initial effort by three formal methods experts, most work has been done by engineering team.</p>
+
+        <h2 id="limitations"   >
+          <a href="#limitations" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#limitations"></a> Limitations</h2>
+      
+<p>There is one example of a bug that the validation should have caught but did not, and was instead caught during manual code review.</p>
+
+        <h1 id="conclusion"   >
+          <a href="#conclusion" class="heading-link"><i class="fas fa-link"></i></a><a class="markdownIt-Anchor" href="#conclusion"></a> Conclusion</h1>
+      
+<p>In order to detect bugs as early as possible and to ensure that our validation work remains relevant as the code changes over time, we use a light-weight formal method to verify <code>ShardStore</code>.</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ END ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">Author: </span><span class="copyright-author__value"><a href="https://fanweneddie.github.io/blogs">Wen Fan</a></span></div><div class="copyright-link"><span class="copyright-link__name">Link: </span><span class="copyright-link__value"><a href="https://fanweneddie.github.io/blogs/2022/01/27/lightweight-formal-methods/">https://fanweneddie.github.io/blogs/2022/01/27/lightweight-formal-methods/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">Copyright: </span><span class="copyright-notice__value">All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> unless stating additionally</span></div></div><nav class="post-paginator paginator"><div class="paginator-next"><a class="paginator-next__link" href="/blogs/2022/01/26/leveldb-iterator/"><span class="paginator-prev__text">Leveldb Iterator</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">Catalog</span><span class="sidebar-nav-ov">Overview</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#abstraction"><span class="toc-number">1.</span> <span class="toc-text">
+           Abstraction</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#introduction"><span class="toc-number">2.</span> <span class="toc-text">
+           Introduction</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#shardstore"><span class="toc-number">3.</span> <span class="toc-text">
+           ShardStore</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#design"><span class="toc-number">3.1.</span> <span class="toc-text">
+           Design</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#overview"><span class="toc-number">3.1.1.</span> <span class="toc-text">
+           Overview</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#chunk-storage-and-chunk-reclamation"><span class="toc-number">3.1.2.</span> <span class="toc-text">
+           Chunk Storage and Chunk Reclamation</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#rpc-interface-and-append-only-io"><span class="toc-number">3.1.3.</span> <span class="toc-text">
+           RPC Interface and Append-only I&#x2F;O</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#crash-consistency"><span class="toc-number">3.2.</span> <span class="toc-text">
+           Crash Consistency</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#validating-a-storage-system"><span class="toc-number">4.</span> <span class="toc-text">
+           Validating a Storage System</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#correctness-properties"><span class="toc-number">4.1.</span> <span class="toc-text">
+           Correctness Properties</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#reference-models"><span class="toc-number">4.2.</span> <span class="toc-text">
+           Reference Models</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#conformance-checking"><span class="toc-number">5.</span> <span class="toc-text">
+           Conformance Checking</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#property-based-testing"><span class="toc-number">5.1.</span> <span class="toc-text">
+           Property-Based Testing</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#coverage"><span class="toc-number">5.2.</span> <span class="toc-text">
+           Coverage</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#argument-bias"><span class="toc-number">5.2.1.</span> <span class="toc-text">
+           Argument Bias</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#coverage-metrics"><span class="toc-number">5.2.2.</span> <span class="toc-text">
+           Coverage Metrics</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#minimization"><span class="toc-number">5.3.</span> <span class="toc-text">
+           Minimization</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#failure-injection"><span class="toc-number">5.4.</span> <span class="toc-text">
+           Failure Injection</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#fail-stop-crashes"><span class="toc-number">5.4.1.</span> <span class="toc-text">
+           Fail-stop Crashes</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#disk-io-failures"><span class="toc-number">5.4.2.</span> <span class="toc-text">
+           Disk IO Failures</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#resource-exhaustion"><span class="toc-number">5.4.3.</span> <span class="toc-text">
+           Resource Exhaustion</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#checking-crash-consistency"><span class="toc-number">6.</span> <span class="toc-text">
+           Checking Crash Consistency</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#block-level-crash-states"><span class="toc-number">6.1.</span> <span class="toc-text">
+           Block-level Crash States</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#checking-concurrent-executions"><span class="toc-number">7.</span> <span class="toc-text">
+           Checking Concurrent Executions</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#properties-and-tools"><span class="toc-number">7.1.</span> <span class="toc-text">
+           Properties and Tools</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#example"><span class="toc-number">7.2.</span> <span class="toc-text">
+           Example</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#other-properties"><span class="toc-number">8.</span> <span class="toc-text">
+           Other Properties</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#undefined-behavior"><span class="toc-number">8.1.</span> <span class="toc-text">
+           Undefined Behavior</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#serialization"><span class="toc-number">8.2.</span> <span class="toc-text">
+           Serialization</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#experience"><span class="toc-number">9.</span> <span class="toc-text">
+           Experience</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#bugs-prevented"><span class="toc-number">9.1.</span> <span class="toc-text">
+           Bugs Prevented</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#validation-effort"><span class="toc-number">9.2.</span> <span class="toc-text">
+           Validation Effort</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#limitations"><span class="toc-number">9.3.</span> <span class="toc-text">
+           Limitations</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#conclusion"><span class="toc-number">10.</span> <span class="toc-text">
+           Conclusion</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="https://fanweneddie.github.io/img/profile.png" alt="avatar"></div><p class="sidebar-ov-author__text">Wen Fan</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://fanweneddie.github.io" target="_blank" rel="noopener" data-popover="Homepage" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fas fa-home"></i></span></a><a class="sidebar-ov-social-item" href="https://fanweneddie.github.io/personal/WenFan_CV.pdf" target="_blank" rel="noopener" data-popover="CV" data-popover-pos="up"><span class="sidebar-ov-social-item__icon">CV</span></a><a class="sidebar-ov-social-item" href="https://github.com/fanweneddie" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="mailto:eddie@mail.ustc.edu.cn" target="_blank" rel="noopener" data-popover="Email" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fas fa-envelope"></i></span></a></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/blogs/archives/"><div class="sidebar-ov-state-item__count">25</div><div class="sidebar-ov-state-item__name">Archives</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/blogs/categories/"><div class="sidebar-ov-state-item__count">2</div><div class="sidebar-ov-state-item__name">Categories</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="Creative Commons" data-popover-pos="up"><img src="/blogs/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">You have read </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2022</span><span class="footer__icon"><i class="fas fa-heart"></i></span><span>Wen Fan</span></div><div><span>Powered by <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a></span><span> v6.0.0</span><span class="footer__devider">|</span><span>Theme - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.2</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><link href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/katex.min.css" rel="stylesheet" type="text/css"><link href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/contrib/copy-tex.css" rel="stylesheet" type="text/css"><script src="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/contrib/copy-tex.min.js"></script><script src="/blogs/js/utils.js?v=2.6.2"></script><script src="/blogs/js/stun-boot.js?v=2.6.2"></script><script src="/blogs/js/scroll.js?v=2.6.2"></script><script src="/blogs/js/header.js?v=2.6.2"></script><script src="/blogs/js/sidebar.js?v=2.6.2"></script></body></html>
